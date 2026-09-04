@@ -1,5 +1,11 @@
-numpy>=1.26,<3
-opencv-python-headless>=4.9,<5
+# NumPy pinned to the 1.26 line on purpose:
+# NumPy 2.x manylinux wheels are built with an x86-64-v2 baseline, so they crash
+# at import ("NumPy was built with baseline optimizations (X86_V2)") on older
+# Home Assistant hosts (older Celeron/Atom/NUC CPUs, some VMs) that predate it.
+# 1.26.x wheels use an SSE2 (x86-64-v1) baseline and run everywhere.
+numpy==1.26.4
+# OpenCV 4.10 is compatible with numpy 1.26; newer builds may require numpy 2.
+opencv-python-headless==4.10.0.84
 paho-mqtt>=2.0,<3
 Flask>=3.0,<4
 waitress>=3.0,<4

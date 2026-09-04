@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Fix crash on start (`NumPy was built with baseline optimizations (X86_V2)`) on
+  older CPUs that lack x86-64-v2. Pin `numpy==1.26.4` (SSE2 baseline wheels) and
+  `opencv-python-headless==4.10.0.84`.
+
 ## 0.1.1
 
 - Fix add-on failing to start with `cannot open /init: Permission denied`. The

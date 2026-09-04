@@ -1,5 +1,5 @@
 name: CatWatch
-version: "0.1.1"
+version: "0.1.2"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
