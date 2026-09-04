@@ -1,0 +1,44 @@
+configuration:
+  rtsp_url:
+    name: Camera RTSP URL
+    description: >-
+      Full RTSP stream URL of the camera watching the food bowls, e.g.
+      rtsp://user:pass@192.168.1.50:554/stream1
+  detection_fps:
+    name: Detection frame rate
+    description: >-
+      How many frames per second to analyse. 2-4 is plenty and keeps CPU low.
+  motion_sensitivity:
+    name: Motion sensitivity
+    description: >-
+      Pixel-change threshold (1 = very sensitive, 100 = only large changes).
+  motion_min_area:
+    name: Minimum motion area
+    description: >-
+      Smallest changed area (in pixels) that counts as motion. Raise it to
+      ignore small movements; lower it if a cat is far from the camera.
+  eating_dwell_seconds:
+    name: Eating dwell time
+    description: >-
+      A cat must stay in the bowl region this many seconds before it counts as
+      "eating". Filters out cats just passing by.
+  cats:
+    name: Cat names
+    description: >-
+      The names of your cats. One Home Assistant entity set is created per name.
+  classifier_confidence:
+    name: Recognition confidence threshold
+    description: >-
+      Minimum confidence (0-1) to name a cat. Below this it reports "unknown".
+  save_captures:
+    name: Save captures for training
+    description: >-
+      Save each detected cat crop so you can label it in the web UI and improve
+      recognition over time.
+  jpeg_quality:
+    name: Snapshot JPEG quality
+    description: JPEG quality (30-100) for saved snapshots and the MQTT image.
+  log_level:
+    name: Log level
+    description: Verbosity of the add-on log.
+network: {}

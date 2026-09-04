@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Local model / data artifacts (should live in the add-on's /data or /config)
+*.npz
+*.pkl
+*.onnx
+snapshots/
+dataset/
+
+# Local test harness (test-local.sh)
+catwatch/dev-data/
+catwatch/dev-config/
+
+# OS
+.DS_Store

@@ -1,0 +1,173 @@
+"""MQTT publishing with Home Assistant device-based discovery.
+
+Creates a single "CatWatch" device with:
+  - Activity            (binary_sensor, motion)  — something is at the bowls
+  - Current cat         (sensor)                 — who is there right now
+  - Snapshot            (image)                  — latest capture
+  - <Cat> eating        (binary_sensor)          — per cat, on while eating
+  - <Cat> last eaten    (sensor, timestamp)      — per cat
+  - <Cat> meals today   (sensor)                 — per cat, resets at midnight
+"""
+from __future__ import annotations
+
+import json
+import logging
+
+import paho.mqtt.client as mqtt
+
+from . import __version__, config
+
+log = logging.getLogger("catwatch.mqtt")
+
+DISCOVERY_PREFIX = "homeassistant"
+DEVICE_ID = "catwatch"
+BASE = "catwatch"
+STATUS_TOPIC = f"{BASE}/status"
+DISCOVERY_TOPIC = f"{DISCOVERY_PREFIX}/device/{DEVICE_ID}/config"
+SNAPSHOT_TOPIC = f"{BASE}/snapshot"
+
+
+class MqttPublisher:
+    def __init__(self, settings: config.Settings, on_state_change=None):
+        self.s = settings
+        self.connected = False
+        self._on_state_change = on_state_change
+        self.client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2, client_id="catwatch"
+        )
+        if settings.mqtt_user:
+            self.client.username_pw_set(settings.mqtt_user, settings.mqtt_password)
+        self.client.will_set(STATUS_TOPIC, "offline", retain=True)
+        self.client.on_connect = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
+
+    # -- lifecycle ----------------------------------------------------------
+    def start(self):
+        if not self.s.mqtt_host:
+            log.warning("No MQTT host configured; entities will not be published.")
+            return
+        try:
+            self.client.connect_async(self.s.mqtt_host, self.s.mqtt_port, keepalive=60)
+            self.client.loop_start()
+        except Exception as exc:  # noqa: BLE001
+            log.error("MQTT connect failed: %s", exc)
+
+    def stop(self):
+        try:
+            self.client.publish(STATUS_TOPIC, "offline", retain=True)
+            self.client.loop_stop()
+            self.client.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        if getattr(reason_code, "is_failure", False):
+            log.error("MQTT connection failed: %s", reason_code)
+            return
+        self.connected = True
+        log.info("MQTT connected")
+        self.publish_discovery()
+        client.publish(STATUS_TOPIC, "online", retain=True)
+        if self._on_state_change:
+            self._on_state_change(True)
+
+    def _on_disconnect(self, client, userdata, *args):
+        self.connected = False
+        log.warning("MQTT disconnected")
+        if self._on_state_change:
+            self._on_state_change(False)
+
+    # -- discovery ----------------------------------------------------------
+    def _discovery_payload(self):
+        cmps = {
+            "activity": {
+                "p": "binary_sensor",
+                "name": "Activity",
+                "device_class": "motion",
+                "state_topic": f"{BASE}/activity",
+                "unique_id": "catwatch_activity",
+            },
+            "current_cat": {
+                "p": "sensor",
+                "name": "Current cat",
+                "icon": "mdi:cat",
+                "state_topic": f"{BASE}/current_cat",
+                "unique_id": "catwatch_current_cat",
+            },
+            "snapshot": {
+                "p": "image",
+                "name": "Snapshot",
+                "image_topic": SNAPSHOT_TOPIC,
+                "content_type": "image/jpeg",
+                "unique_id": "catwatch_snapshot",
+            },
+        }
+        for slug, name in self.s.cat_slugs.items():
+            cmps[f"{slug}_eating"] = {
+                "p": "binary_sensor",
+                "name": f"{name} eating",
+                "icon": "mdi:cat",
+                "state_topic": f"{BASE}/{slug}/eating",
+                "unique_id": f"catwatch_{slug}_eating",
+            }
+            cmps[f"{slug}_last_eaten"] = {
+                "p": "sensor",
+                "name": f"{name} last eaten",
+                "device_class": "timestamp",
+                "state_topic": f"{BASE}/{slug}/last_eaten",
+                "unique_id": f"catwatch_{slug}_last_eaten",
+            }
+            cmps[f"{slug}_meals"] = {
+                "p": "sensor",
+                "name": f"{name} meals today",
+                "icon": "mdi:bowl-mix",
+                "state_class": "total",
+                "state_topic": f"{BASE}/{slug}/meals",
+                "unique_id": f"catwatch_{slug}_meals",
+            }
+
+        return {
+            "dev": {
+                "ids": DEVICE_ID,
+                "name": "CatWatch",
+                "mf": "CatWatch",
+                "mdl": "Local cat recognition",
+                "sw": __version__,
+            },
+            "o": {"name": "catwatch", "sw": __version__},
+            "availability_topic": STATUS_TOPIC,
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "cmps": cmps,
+        }
+
+    def publish_discovery(self):
+        self.client.publish(
+            DISCOVERY_TOPIC, json.dumps(self._discovery_payload()), retain=True
+        )
+        log.info("Published MQTT discovery for %d cats", len(self.s.cats))
+
+    # -- state --------------------------------------------------------------
+    def pub(self, topic, payload, retain=True):
+        if payload is None:
+            return
+        self.client.publish(topic, payload, retain=retain)
+
+    def publish_activity(self, active: bool):
+        self.pub(f"{BASE}/activity", "ON" if active else "OFF")
+
+    def publish_current_cat(self, name: str):
+        self.pub(f"{BASE}/current_cat", name or "none")
+
+    def publish_cat_eating(self, slug: str, eating: bool):
+        self.pub(f"{BASE}/{slug}/eating", "ON" if eating else "OFF")
+
+    def publish_cat_last_eaten(self, slug: str, iso_ts: str):
+        self.pub(f"{BASE}/{slug}/last_eaten", iso_ts)
+
+    def publish_cat_meals(self, slug: str, meals: int):
+        self.pub(f"{BASE}/{slug}/meals", str(meals))
+
+    def publish_snapshot(self, jpg_bytes: bytes):
+        if jpg_bytes:
+            self.client.publish(SNAPSHOT_TOPIC, jpg_bytes, retain=True)

@@ -1,0 +1,24 @@
+#include <tunables/global>
+
+profile catwatch flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+
+  # Startup
+  /run.sh r,
+  /usr/bin/bashio r,
+  /usr/bin/env r,
+  /bin/** rix,
+  /usr/bin/** rix,
+  /usr/local/bin/** rix,
+
+  # Python + app
+  /usr/bin/python3 ix,
+  /app/** r,
+
+  # Data & config (read/write)
+  /data/** rw,
+  /config/** rw,
+
+  # Networking (RTSP + MQTT + ingress) handled by abstractions/base
+}
