@@ -2,23 +2,34 @@
 
 profile catwatch flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
-  #include <abstractions/python>
 
-  # Startup
-  /run.sh r,
-  /usr/bin/bashio r,
-  /usr/bin/env r,
-  /bin/** rix,
-  /usr/bin/** rix,
-  /usr/local/bin/** rix,
+  # Capabilities
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
 
-  # Python + app
-  /usr/bin/python3 ix,
+  # S6-Overlay (the base image's init system) — must be allowed to exec,
+  # otherwise the container fails to start with "cannot open /init".
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /usr/local/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/s6-overlay/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+
+  # Bashio + our launcher
+  /usr/lib/bashio/** ix,
+  /run.sh ix,
+  /tmp/** rwk,
+
+  # Application code and data
   /app/** r,
-
-  # Data & config (read/write)
   /data/** rw,
   /config/** rw,
-
-  # Networking (RTSP + MQTT + ingress) handled by abstractions/base
 }

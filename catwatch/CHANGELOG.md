@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Fix add-on failing to start with `cannot open /init: Permission denied`. The
+  bundled AppArmor profile was too strict and blocked the s6-overlay init used
+  by the base image; it now permits `/init` and the s6 paths.
+
 ## 0.1.0
 
 Initial release.
