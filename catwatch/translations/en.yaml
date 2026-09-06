@@ -22,6 +22,17 @@ configuration:
     description: >-
       A cat must stay in the bowl region this many seconds before it counts as
       "eating". Filters out cats just passing by.
+  meal_cooldown_minutes:
+    name: Meal cooldown
+    description: >-
+      Minimum minutes between counted meals for the same cat. Repeated visits
+      within this window are treated as one meal, so a cat grazing at the bowl
+      isn't counted dozens of times.
+  presence_grace_seconds:
+    name: Presence grace period
+    description: >-
+      Seconds of no motion tolerated before a visit is considered over. Bridges
+      the brief gaps when a still cat blends into the background.
   cats:
     name: Cat names
     description: >-

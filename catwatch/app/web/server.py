@@ -42,9 +42,17 @@ INDEX_HTML = """<!doctype html>
   img.snap { max-width: 100%; border-radius: 8px; }
   button { background: #3f51b5; color: #fff; border: 0; padding: 8px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
   button.ghost { background: transparent; color: inherit; border: 1px solid #8888; }
-  .cap { display: inline-block; text-align: center; margin: 6px; }
-  .cap img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; }
-  .cap select { width: 120px; margin-top: 4px; }
+  .cap { position: relative; display: inline-block; margin: 6px; cursor: pointer; line-height: 0; }
+  .cap img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; display: block; }
+  .cap.sel img { outline: 3px solid #00e676; outline-offset: -1px; }
+  .cap.sel::after { content: "✓"; position: absolute; top: 6px; left: 6px; width: 22px; height: 22px;
+    background: #00e676; color: #084b22; border-radius: 50%; font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; position: sticky; top: 0;
+    z-index: 5; background: #3f51b5; color: #fff; padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; }
+  .bar button { background: #fff; color: #3f51b5; }
+  .bar button.warn { background: #ffd9d9; color: #a10000; }
+  .toolrow { margin: 4px 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td { padding: 6px 4px; border-bottom: 1px solid #8882; }
   .muted { opacity: .6; font-size: 13px; }
@@ -91,6 +99,17 @@ INDEX_HTML = """<!doctype html>
 
   <div class="card full">
     <h2>Captures to label</h2>
+    <div id="bar" class="bar" hidden>
+      <b><span id="selCount">0</span> selected →</b>
+      <span id="catBtns"></span>
+      <button class="warn" onclick="assign('_delete')">🗑 Delete</button>
+      <button onclick="clearSel()">Clear</button>
+    </div>
+    <div class="toolrow">
+      <button class="ghost" onclick="selectAll()">Select all</button>
+      <button class="ghost" onclick="loadCaptures()">Refresh</button>
+      <span class="muted">Click images to select, then assign the whole batch to a cat.</span>
+    </div>
     <div id="captures"></div>
   </div>
 </main>
@@ -168,23 +187,55 @@ async function loadStatus() {
   if (j.roi) { roi = j.roi; drawRoi(); }
 }
 
-async function loadCats() { CATS = await (await fetch('api/cats')).json(); }
+const SELECTED = new Set();
+
+async function loadCats() {
+  CATS = await (await fetch('api/cats')).json();
+  document.getElementById('catBtns').innerHTML =
+    CATS.map(c => `<button onclick="assign('${c}')">${c}</button>`).join(' ');
+}
+
+function updateBar() {
+  document.getElementById('selCount').textContent = SELECTED.size;
+  document.getElementById('bar').hidden = SELECTED.size === 0;
+}
+function toggleSel(file, el) {
+  if (SELECTED.has(file)) { SELECTED.delete(file); el.classList.remove('sel'); }
+  else { SELECTED.add(file); el.classList.add('sel'); }
+  updateBar();
+}
+function selectAll() {
+  document.querySelectorAll('.cap').forEach(el => { SELECTED.add(el.dataset.file); el.classList.add('sel'); });
+  updateBar();
+}
+function clearSel() {
+  SELECTED.clear();
+  document.querySelectorAll('.cap').forEach(el => el.classList.remove('sel'));
+  updateBar();
+}
+async function assign(cat) {
+  if (SELECTED.size === 0) return;
+  const files = [...SELECTED];
+  await fetch('api/label_batch', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({files, cat})});
+  SELECTED.clear(); updateBar();
+  loadCaptures();
+}
 
 async function loadCaptures() {
   const files = await (await fetch('api/captures')).json();
-  const opts = ['<option value="">— pick cat —</option>']
-    .concat(CATS.map(c=>`<option value="${c}">${c}</option>`))
-    .concat('<option value="_delete">🗑 delete</option>').join('');
-  document.getElementById('captures').innerHTML = files.length ? files.map(f =>
-    `<div class="cap"><img src="api/captures/${f}"><br>
-      <select onchange="label('${f}', this.value)">${opts}</select></div>`).join('')
-    : '<span class="muted">No captures yet. They appear here when a cat visits the bowls.</span>';
-}
-async function label(file, cat) {
-  if (!cat) return;
-  await fetch('api/label', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({file, cat})});
-  loadCaptures();
+  const box = document.getElementById('captures');
+  if (!files.length) {
+    box.innerHTML = '<span class="muted">No captures yet. They appear here when a cat visits the bowls.</span>';
+    clearSel();
+    return;
+  }
+  box.innerHTML = files.map(f =>
+    `<div class="cap${SELECTED.has(f)?' sel':''}" data-file="${f}" onclick="toggleSel('${f}', this)">
+       <img src="api/captures/${f}" loading="lazy"></div>`).join('');
+  // Drop selections whose files are gone.
+  [...SELECTED].forEach(f => { if (!files.includes(f)) SELECTED.delete(f); });
+  updateBar();
 }
 
 frame.addEventListener('load', fit);
@@ -197,7 +248,8 @@ loadStatus(); refreshFrame(); refreshSnap();
 setInterval(loadStatus, 2000);
 setInterval(refreshFrame, 1500);
 setInterval(refreshSnap, 3000);
-setInterval(loadCaptures, 8000);
+// Don't refresh (and wipe highlights) while a selection is in progress.
+setInterval(() => { if (SELECTED.size === 0) loadCaptures(); }, 8000);
 </script>
 </body>
 </html>
@@ -273,6 +325,34 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
         os.makedirs(dst_dir, exist_ok=True)
         os.replace(src, os.path.join(dst_dir, fname))
         return jsonify({"ok": True})
+
+    @app.post("/api/label_batch")
+    def api_label_batch():
+        body = request.get_json(silent=True) or {}
+        files = body.get("files", [])
+        cat = body.get("cat", "")
+        if not isinstance(files, list) or not files:
+            return jsonify({"ok": False, "error": "no files"}), 400
+        if cat != "_delete" and cat not in settings.cats:
+            return jsonify({"ok": False, "error": "unknown cat"}), 400
+        moved = 0
+        if cat != "_delete":
+            dst_dir = settings.dataset_dir_for(cat)
+            os.makedirs(dst_dir, exist_ok=True)
+        for raw in files:
+            fname = secure_filename(str(raw))
+            src = os.path.join(config.UNLABELED_DIR, fname)
+            if not fname or not os.path.exists(src):
+                continue
+            try:
+                if cat == "_delete":
+                    os.remove(src)
+                else:
+                    os.replace(src, os.path.join(dst_dir, fname))
+                moved += 1
+            except OSError:
+                continue
+        return jsonify({"ok": True, "count": moved})
 
     @app.post("/api/train")
     def api_train():

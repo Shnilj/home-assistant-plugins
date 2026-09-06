@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3
+
+- Fix wildly inflated meal counts. A cat holding still at the bowl was absorbed
+  into the background, flickering motion off and splitting one meal into many.
+  Presences are now debounced (`presence_grace_seconds`) and a meal is only
+  counted once per `meal_cooldown_minutes` per cat, so one feeding window = one
+  meal.
+- Web UI: label training captures by multi-select — click images to select,
+  then assign the whole batch to a cat (or delete) in one click.
+
 ## 0.1.2
 
 - Fix crash on start (`NumPy was built with baseline optimizations (X86_V2)`) on

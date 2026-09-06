@@ -81,10 +81,13 @@ class CatWatch:
         )
         # presence state machine
         self._present_since = None
+        self._absent_since = None
         self._active_label = "unknown"
         self._eating_registered = False
         self._eating_cat = None
         self._capture_saved = False
+        # When each cat's last meal was counted (for the cooldown debounce).
+        self._last_meal_ts = {name: None for name in settings.cats}
         self._roi = None
         self._roi_reloaded = 0.0
         self._last_ui_frame = 0.0
@@ -104,29 +107,46 @@ class CatWatch:
             for name in self.s.cats:
                 self.state.update_cat(name, meals_today=0)
                 self.mqtt.publish_cat_meals(config.slugify(name), 0)
+                self._last_meal_ts[name] = None
             log.info("Daily meal counters reset")
 
-    def _register_meal(self, name, frame, bbox, conf):
+    def _start_eating(self, name, frame, bbox, conf, now):
+        """Mark a cat as eating. Counts a *new* meal only if enough time has
+        passed since this cat's last one (cooldown), so a single feeding window
+        — even when split into flickers by the motion detector — is one meal."""
         slug = config.slugify(name)
         ts = datetime.now().astimezone()
-        meals = self.state.cats[name]["meals_today"] + 1
-        self.state.update_cat(name, eating=True, last_eaten=ts.isoformat(), meals_today=meals)
+        cooldown = self.s.meal_cooldown_minutes * 60
+        last = self._last_meal_ts.get(name)
+        new_meal = last is None or (now - last) >= cooldown
+
+        if new_meal:
+            meals = self.state.cats[name]["meals_today"] + 1
+            self.state.update_cat(name, meals_today=meals)
+            self.mqtt.publish_cat_meals(slug, meals)
+            log.info("%s — new meal #%d (conf %.2f)", name, meals, conf)
+        else:
+            log.debug("%s still in the same meal window (conf %.2f)", name, conf)
+        self._last_meal_ts[name] = now
+
+        self.state.update_cat(name, eating=True, last_eaten=ts.isoformat())
         self.mqtt.publish_cat_eating(slug, True)
         self.mqtt.publish_cat_last_eaten(slug, ts.isoformat())
-        self.mqtt.publish_cat_meals(slug, meals)
 
         annotated = _annotate(frame, bbox, name, conf)
         jpg = _encode_jpg(annotated, self.s.jpeg_quality)
         if jpg:
             self.state.set_snapshot(jpg)
             self.mqtt.publish_snapshot(jpg)
-            fname = f"{slug}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
-            try:
-                with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
-                    fh.write(jpg)
-            except OSError as exc:
-                log.warning("Could not write snapshot: %s", exc)
-        log.info("%s eating (meal #%d, conf %.2f)", name, meals, conf)
+            # Only keep a snapshot file on disk for an actual new meal, not for
+            # every flicker within the same feeding window.
+            if new_meal:
+                fname = f"{slug}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
+                try:
+                    with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
+                        fh.write(jpg)
+                except OSError as exc:
+                    log.warning("Could not write snapshot: %s", exc)
 
     def _save_capture(self, crop, guessed, conf):
         if not self.s.save_captures or crop is None or crop.size == 0:
@@ -151,6 +171,7 @@ class CatWatch:
             self.state.update_cat(self._eating_cat, eating=False)
             self.mqtt.publish_cat_eating(config.slugify(self._eating_cat), False)
         self._present_since = None
+        self._absent_since = None
         self._active_label = "unknown"
         self._eating_registered = False
         self._eating_cat = None
@@ -195,8 +216,18 @@ class CatWatch:
         motion, area, bbox = self.motion.process(frame, self._roi)
 
         if not motion:
-            self._end_presence()
+            # Don't end the presence on the first still frame — a cat holding
+            # still gets absorbed into the background and motion flickers off.
+            # Only end after motion has been absent for the grace period.
+            if self._present_since is not None:
+                if self._absent_since is None:
+                    self._absent_since = now
+                elif (now - self._absent_since) >= self.s.presence_grace_seconds:
+                    self._end_presence()
             return
+
+        # Motion present: cancel any pending "absent" timer.
+        self._absent_since = None
 
         crop = _crop(frame, bbox, clamp_roi(self._roi, frame.shape))
         model = self.model_holder.get()
@@ -221,7 +252,7 @@ class CatWatch:
             self._capture_saved = True
 
         if dwell_ok and not self._eating_registered and display != "unknown":
-            self._register_meal(display, frame, bbox, conf)
+            self._start_eating(display, frame, bbox, conf, now)
             self._eating_registered = True
             self._eating_cat = display
 

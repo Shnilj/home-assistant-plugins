@@ -47,6 +47,8 @@ hasn't eaten in a while.
 | `motion_sensitivity` | `25` | 1 = very sensitive, 100 = only big changes. |
 | `motion_min_area` | `1500` | Smallest changed area (px) that counts as motion. |
 | `eating_dwell_seconds` | `5` | How long a cat must stay before it counts as *eating* (filters cats passing by). |
+| `meal_cooldown_minutes` | `15` | Minimum minutes between counted meals for one cat. Repeated visits within this window count as one meal. |
+| `presence_grace_seconds` | `3` | Motion-free seconds tolerated before a visit is considered over (bridges a still cat blending into the background). |
 | `cats` | `[Ellie]` | Your cats' names. |
 | `classifier_confidence` | `0.55` | Below this, a cat is reported as `unknown`. |
 | `save_captures` | `true` | Save crops so you can label them and improve recognition. |
@@ -64,9 +66,11 @@ The **bowl region (ROI)** is set in the web UI, not here.
    so movement elsewhere in the room is ignored.
 2. **Let it collect examples.** Over the next day or two, each time a cat visits
    the bowls CatWatch saves a cropped photo under *Captures to label*.
-3. **Label them.** Pick the right cat under each capture. Aim for **20–40 good
-   crops per cat**, in different poses and lighting. Delete bad ones (blurry,
-   empty, two cats at once).
+3. **Label them.** Click the captures that show the same cat to select them
+   (a green tick appears), then click that cat's button in the toolbar to file
+   the whole batch at once — or **Delete** to bin the bad ones (blurry, empty,
+   two cats at once). Aim for **20–40 good crops per cat**, in varied poses and
+   lighting.
 4. **Train.** Click **Train now**. Recognition switches on immediately; the
    *Model ready* pill turns green.
 5. **Keep improving.** Whenever recognition is shaky, label a few more fresh

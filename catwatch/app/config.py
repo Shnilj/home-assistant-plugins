@@ -32,6 +32,8 @@ _DEFAULTS = {
     "motion_sensitivity": 25,
     "motion_min_area": 1500,
     "eating_dwell_seconds": 5,
+    "meal_cooldown_minutes": 15,
+    "presence_grace_seconds": 3,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -61,6 +63,8 @@ class Settings:
     motion_sensitivity: int = 25
     motion_min_area: int = 1500
     eating_dwell_seconds: int = 5
+    meal_cooldown_minutes: int = 15
+    presence_grace_seconds: int = 3
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -101,6 +105,8 @@ def load_settings() -> Settings:
         motion_sensitivity=_int("motion_sensitivity"),
         motion_min_area=_int("motion_min_area"),
         eating_dwell_seconds=_int("eating_dwell_seconds"),
+        meal_cooldown_minutes=_int("meal_cooldown_minutes"),
+        presence_grace_seconds=_int("presence_grace_seconds"),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),
