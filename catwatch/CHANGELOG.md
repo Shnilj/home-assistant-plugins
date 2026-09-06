@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Remove the deprecated `build.yaml` (Supervisor warned about it). Base-image
+  selection now uses `BUILD_ARCH` in the Dockerfile and labels moved into it, so
+  the Debian base is still chosen per architecture. No functional change.
+
 ## 0.2.0
 
 - Multiple typed zones instead of one region. Draw as many **food** and **water**

@@ -1,7 +1,13 @@
-# BUILD_FROM is provided by build.yaml per architecture. The default keeps the
-# image buildable on amd64 even if the build arg is not passed.
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-debian:bookworm
-FROM ${BUILD_FROM}
+# Base image is selected per architecture. BUILD_ARCH is provided by the Home
+# Assistant builder; the amd64 default keeps the image buildable standalone.
+# A Debian base (not the Alpine default) is required so numpy / opencv install
+# from prebuilt manylinux wheels instead of compiling against musl.
+ARG BUILD_ARCH=amd64
+FROM ghcr.io/home-assistant/${BUILD_ARCH}-base-debian:bookworm
+
+LABEL org.opencontainers.image.title="CatWatch" \
+      org.opencontainers.image.description="Local motion-triggered cat recognition for Home Assistant" \
+      org.opencontainers.image.source="https://github.com/jensdescamps/home-assistant-plugins"
 
 ENV LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
