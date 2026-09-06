@@ -567,7 +567,9 @@ def compute_model(subjects: list, history_day: dict, now: datetime, settings) ->
             if m["due_now"] > 0:
                 due_list.append({
                     "subject": s["name"],
+                    "subject_id": s["id"],
                     "medication": m["name"],
+                    "med_id": m["id"],
                     "dose": m["next_dose_label"],
                     "state": m["state"],
                     "due_at": m["next_due_iso"],

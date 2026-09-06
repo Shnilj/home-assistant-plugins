@@ -166,3 +166,149 @@ simply trigger on a specific medication's **low stock** sensor turning on.
   day simply starts with no doses recorded.
 - Editing `medications.json` by hand is fine; MedTracker reloads it when it
   changes and republishes discovery.
+
+## Actionable notification: "these meds need giving now" + a Done button
+
+The goal: when doses come due, your phones get a notification listing them with a
+**Mark given** button that records them as taken. Two building blocks make this
+easy:
+
+- `sensor.medtracker_<subject>_due_now` — how many doses are due right now.
+- `button.medtracker_<subject>_take_all_due` — pressing it marks every currently
+  due dose for that subject as taken.
+- `sensor.medtracker_total_due_now` — its `due` attribute is the list of due
+  doses, each `{subject, subject_id, medication, med_id, dose, state, due_at}`,
+  handy for the message body and for per-medication buttons.
+
+> Entity IDs are derived by Home Assistant from the device + entity names, so
+> confirm the exact IDs under **Developer Tools → States** (search `medtracker`).
+> `notify.family_phones` below is a [notify group](https://www.home-assistant.io/integrations/group/#notify-groups)
+> of your `notify.mobile_app_*` targets — or just use one `notify.mobile_app_<phone>`.
+
+### Recipe A — one "Mark given" button per subject (recommended)
+
+Marks everything currently due for the subject in one tap. The `tag` makes the
+notification update instead of stacking and lets us clear it on all phones.
+
+```yaml
+# 1) Notify (and re-remind every 30 min while anything is due)
+automation:
+  - alias: Ellie meds due — notify
+    id: ellie_meds_due_notify
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.medtracker_ellie_due_now
+        above: 0
+      - trigger: time_pattern
+        minutes: "/30"
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.medtracker_ellie_due_now
+        above: 0
+    actions:
+      - action: notify.family_phones
+        data:
+          title: "💊 Ellie's medication"
+          message: >-
+            Due now:
+            {{ state_attr('sensor.medtracker_total_due_now','due')
+               | selectattr('subject_id','eq','ellie')
+               | map(attribute='medication') | join(', ') }}.
+          data:
+            tag: meds_ellie          # same tag → updates/clears across devices
+            group: medtracker
+            channel: Medication       # Android channel
+            importance: high
+            actions:
+              - action: MEDS_ELLIE_TAKE
+                title: "✓ Mark given"
+              - action: MEDS_ELLIE_SNOOZE
+                title: "Snooze 15 min"
+
+# 2) Handle the button taps
+  - alias: Ellie meds — handle actions
+    id: ellie_meds_actions
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data: { action: MEDS_ELLIE_TAKE }
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data: { action: MEDS_ELLIE_SNOOZE }
+    actions:
+      - if: "{{ trigger.event.data.action == 'MEDS_ELLIE_TAKE' }}"
+        then:
+          - action: button.press
+            target: { entity_id: button.medtracker_ellie_take_all_due }
+      # Clear the notification on every phone either way
+      - action: notify.family_phones
+        data:
+          message: clear_notification
+          data: { tag: meds_ellie }
+      # Snooze: the notify automation re-fires on the next /30 tick if still due
+```
+
+### Recipe B — a button per medication (mark exactly that one)
+
+A single universal handler presses the right medication's Take button by reading
+the `subject_id`/`med_id` encoded in the action string, so you write it once for
+all subjects and meds. Pair it with either per-medication notify automations, or
+trigger the notify on `sensor.medtracker_<subject>_<med>_state` becoming `due`.
+
+```yaml
+automation:
+  # One notification per medication that just became due
+  - alias: Med due — Ellie Prednisolone
+    triggers:
+      - trigger: state
+        entity_id: sensor.medtracker_ellie_prednisolone_state
+        to: due
+    actions:
+      - action: notify.family_phones
+        data:
+          title: "💊 Ellie — Prednisolone"
+          message: >-
+            {{ state_attr('sensor.medtracker_ellie_prednisolone_next_due','friendly_name') }}
+            due now ({{ states('sensor.medtracker_ellie_prednisolone_doses') }} today).
+          data:
+            tag: med_ellie_prednisolone
+            actions:
+              - action: "MED_TAKE__ellie__prednisolone"
+                title: "✓ Given"
+              - action: "MED_SKIP__ellie__prednisolone"
+                title: "Skip"
+
+  # Universal handler for every MED_TAKE__/MED_SKIP__ action
+  - alias: MedTracker — handle med actions
+    id: medtracker_med_actions
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+    conditions:
+      - "{{ trigger.event.data.action.startswith('MED_TAKE__')
+            or trigger.event.data.action.startswith('MED_SKIP__') }}"
+    actions:
+      - variables:
+          parts: "{{ trigger.event.data.action.split('__') }}"
+          verb: "{{ 'take' if parts[0] == 'MED_TAKE' else 'skip' }}"
+          sid: "{{ parts[1] }}"
+          mid: "{{ parts[2] }}"
+      - action: button.press
+        target:
+          entity_id: "button.medtracker_{{ sid }}_{{ mid }}_{{ verb }}"
+      - action: notify.family_phones
+        data:
+          message: clear_notification
+          data: { tag: "med_{{ sid }}_{{ mid }}" }
+```
+
+Notes:
+- **iOS** shows up to 3 actions and may need the app's notification permissions;
+  **Android** uses the `channel` for per-category importance/sound.
+- Building ONE notification with a dynamically sized list of per-med buttons is
+  possible but templating the `actions` list is finicky — the per-subject
+  "Take all due" (Recipe A) or per-med automations (Recipe B) are more robust.
+- To alert only when something is genuinely overdue, trigger on
+  `binary_sensor.medtracker_anyone_overdue` (or the subject's `..._overdue`)
+  instead of `due_now`.

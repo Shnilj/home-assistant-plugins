@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- The hub **Total due now** sensor's `due` attribute now includes `subject_id`
+  and `med_id` for each entry, so actionable notifications can map a button tap
+  back to the exact medication's Take button.
+
 ## 0.2.0
 
 - **Multi-day courses / recurring schedules.** A medication can now recur across
