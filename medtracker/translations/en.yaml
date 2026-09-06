@@ -1,0 +1,38 @@
+configuration:
+  overdue_after_minutes:
+    name: Overdue after
+    description: >-
+      Minutes after a dose's scheduled time before it is considered overdue (the
+      medication's state flips to "overdue" and the subject's Overdue sensor turns
+      on). Until then it shows as "due".
+  upcoming_lead_minutes:
+    name: Due-soon lead time
+    description: >-
+      Minutes before a dose's scheduled time that it starts showing as "due"
+      (so you get an early heads-up). Set to 0 to only mark doses due at their
+      exact time.
+  allow_take_early:
+    name: Allow taking early
+    description: >-
+      Allow the Take button (and the web UI) to mark the next upcoming dose as
+      taken even before it is due. Turn off to only permit taking doses that are
+      currently due or overdue.
+  low_stock_days:
+    name: Low-stock warning (days)
+    description: >-
+      For medications with inventory tracking, turn on the Low stock sensor when
+      fewer than this many days of doses remain. Set to 0 to disable the warning.
+  history_days:
+    name: History to keep (days)
+    description: >-
+      How many days of dose history (taken / skipped records) to keep on disk.
+      Older days are pruned.
+  publish_interval_seconds:
+    name: Publish interval
+    description: >-
+      How often (seconds) MedTracker recomputes due doses and refreshes the
+      Home Assistant entities. Lower = snappier state, slightly more MQTT traffic.
+  log_level:
+    name: Log level
+    description: Verbosity of the add-on log.
+network: {}

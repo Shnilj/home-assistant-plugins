@@ -1,0 +1,1 @@
+"""MedTracker ingress web UI."""

@@ -1,0 +1,46 @@
+name: MedTracker
+version: "0.1.0"
+slug: medtracker
+description: >-
+  Track which medicines each person or animal needs to take per day (fixed
+  times or every N hours, whole or fractional pills), and expose Home Assistant
+  entities and buttons to build reminders and notifications.
+url: https://github.com/jensdescamps/home-assistant-plugins/tree/main/medtracker
+codenotary: shniljj@gmail.com
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: manual
+# Web UI in the HA sidebar (no exposed port needed): a phone-friendly "Today"
+# tap list plus a manager for subjects, medications and schedules.
+ingress: true
+ingress_port: 8098
+panel_icon: mdi:pill
+panel_title: MedTracker
+# Needed so we can auto-configure the MQTT broker connection from the
+# Mosquitto add-on / configured MQTT service.
+services:
+  - mqtt:need
+# Persistent, user-visible folder for the medication schedule (medications.json).
+# Mounted at /config inside the container (browse it via Samba / File editor
+# under /addon_configs/<this-addon-slug>/).
+map:
+  - addon_config:rw
+options:
+  overdue_after_minutes: 60
+  upcoming_lead_minutes: 30
+  allow_take_early: true
+  low_stock_days: 7
+  history_days: 14
+  publish_interval_seconds: 20
+  log_level: info
+schema:
+  overdue_after_minutes: int(0,1440)
+  upcoming_lead_minutes: int(0,1440)
+  allow_take_early: bool
+  low_stock_days: int(0,365)
+  history_days: int(1,90)
+  publish_interval_seconds: int(5,300)
+  log_level: list(trace|debug|info|notice|warning|error|fatal)
