@@ -1,5 +1,5 @@
 name: CatWatch
-version: "0.1.3"
+version: "0.2.0"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
@@ -33,7 +33,11 @@ options:
   motion_min_area: 1500
   eating_dwell_seconds: 5
   meal_cooldown_minutes: 15
+  drink_dwell_seconds: 3
+  drink_cooldown_minutes: 10
   presence_grace_seconds: 3
+  zone_coverage: 0.3
+  require_lean_in: true
   cats:
     - Ellie
   classifier_confidence: 0.55
@@ -47,7 +51,11 @@ schema:
   motion_min_area: int(100,1000000)
   eating_dwell_seconds: int(0,120)
   meal_cooldown_minutes: int(0,240)
+  drink_dwell_seconds: int(0,120)
+  drink_cooldown_minutes: int(0,240)
   presence_grace_seconds: int(0,60)
+  zone_coverage: float(0,1)
+  require_lean_in: bool
   cats:
     - str
   classifier_confidence: float(0,1)

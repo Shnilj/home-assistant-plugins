@@ -1,4 +1,4 @@
-"""Flask ingress UI: live frame, ROI editor, capture labelling, training.
+"""Flask ingress UI: live frame, multi-zone editor, capture labelling, training.
 
 Served under Home Assistant ingress, so all links/fetches are RELATIVE — the
 ingress base path is prepended by HA automatically.
@@ -25,7 +25,7 @@ INDEX_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CatWatch</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root { color-scheme: light dark; --food:#00c853; --water:#2979ff; }
   body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f7; color: #1a1a1a; }
   @media (prefers-color-scheme: dark) { body { background: #16171a; color: #e8e8ea; } .card{background:#212226 !important;} }
   header { padding: 14px 20px; background: #3f51b5; color: #fff; font-size: 20px; font-weight: 600; }
@@ -38,10 +38,17 @@ INDEX_HTML = """<!doctype html>
   .ok { background: #d5f5e0; color: #0a6b33; } .bad { background: #ffdede; color: #a10000; }
   #frameWrap { position: relative; display: inline-block; max-width: 100%; }
   #frame { max-width: 100%; border-radius: 8px; display: block; }
-  #roiCanvas { position: absolute; inset: 0; cursor: crosshair; width: 100%; height: 100%; }
+  #zoneCanvas { position: absolute; inset: 0; cursor: crosshair; width: 100%; height: 100%; }
   img.snap { max-width: 100%; border-radius: 8px; }
   button { background: #3f51b5; color: #fff; border: 0; padding: 8px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
   button.ghost { background: transparent; color: inherit; border: 1px solid #8888; }
+  input[type=text] { padding: 7px 9px; border-radius: 8px; border: 1px solid #8888; background: transparent; color: inherit; font-size: 14px; }
+  .seg { display: inline-flex; border: 1px solid #8888; border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; color: inherit; border: 0; border-radius: 0; }
+  .seg button.on[data-t=food] { background: var(--food); color: #003417; }
+  .seg button.on[data-t=water] { background: var(--water); color: #001a3d; }
+  .zrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #8882; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
   .cap { position: relative; display: inline-block; margin: 6px; cursor: pointer; line-height: 0; }
   .cap img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; display: block; }
   .cap.sel img { outline: 3px solid #00e676; outline-offset: -1px; }
@@ -52,9 +59,9 @@ INDEX_HTML = """<!doctype html>
     z-index: 5; background: #3f51b5; color: #fff; padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; }
   .bar button { background: #fff; color: #3f51b5; }
   .bar button.warn { background: #ffd9d9; color: #a10000; }
-  .toolrow { margin: 4px 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolrow { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  td { padding: 6px 4px; border-bottom: 1px solid #8882; }
+  td { padding: 6px 4px; border-bottom: 1px solid #8882; vertical-align: top; }
   .muted { opacity: .6; font-size: 13px; }
 </style>
 </head>
@@ -72,17 +79,22 @@ INDEX_HTML = """<!doctype html>
   </div>
 
   <div class="card full">
-    <h2>Bowl region (ROI)</h2>
-    <p class="muted">Drag a rectangle over the food bowls, then Save. Only motion inside it triggers captures. Leave empty to watch the whole frame.</p>
+    <h2>Zones — food &amp; water bowls</h2>
+    <p class="muted">Pick a type, then drag a box tightly around each bowl or fountain (draw it a touch larger so a nudged bowl stays inside). A cat leaning into a <b style="color:var(--food)">food</b> zone counts as eating; a <b style="color:var(--water)">water</b> zone as drinking. Add as many as are out.</p>
+    <div class="toolrow">
+      <span class="seg">
+        <button id="tFood" data-t="food" class="on" onclick="setType('food')">🍽️ Food</button>
+        <button id="tWater" data-t="water" onclick="setType('water')">💧 Water</button>
+      </span>
+      <input type="text" id="zoneName" placeholder="optional name (e.g. Kitchen bowl)">
+      <button class="ghost" onclick="clearZones()">Clear all</button>
+      <span id="zoneMsg" class="muted"></span>
+    </div>
     <div id="frameWrap">
       <img id="frame" alt="camera frame">
-      <canvas id="roiCanvas"></canvas>
+      <canvas id="zoneCanvas"></canvas>
     </div>
-    <div style="margin-top:10px">
-      <button onclick="saveRoi()">Save ROI</button>
-      <button class="ghost" onclick="clearRoi()">Clear ROI</button>
-      <span id="roiMsg" class="muted"></span>
-    </div>
+    <div id="zoneList"></div>
   </div>
 
   <div class="card">
@@ -116,85 +128,126 @@ INDEX_HTML = """<!doctype html>
 
 <script>
 let CATS = [];
-let roi = null;         // [x,y,w,h] in natural image pixels
+let ZONES = [];
+let curType = 'food';
 let drawing = false, startX = 0, startY = 0;
+const COLORS = { food: '#00c853', water: '#2979ff' };
 const frame = document.getElementById('frame');
-const canvas = document.getElementById('roiCanvas');
+const canvas = document.getElementById('zoneCanvas');
 const ctx = canvas.getContext('2d');
 
-function fit() { canvas.width = frame.clientWidth; canvas.height = frame.clientHeight; drawRoi(); }
-function scaleX() { return frame.naturalWidth ? frame.clientWidth / frame.naturalWidth : 1; }
-function scaleY() { return frame.naturalHeight ? frame.clientHeight / frame.naturalHeight : 1; }
+function fit() { canvas.width = frame.clientWidth; canvas.height = frame.clientHeight; drawZones(); }
+function sx() { return frame.naturalWidth ? frame.clientWidth / frame.naturalWidth : 1; }
+function sy() { return frame.naturalHeight ? frame.clientHeight / frame.naturalHeight : 1; }
 
-function drawRoi() {
+function drawZones(temp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!roi) return;
-  ctx.strokeStyle = '#00e676'; ctx.lineWidth = 2;
-  ctx.strokeRect(roi[0]*scaleX(), roi[1]*scaleY(), roi[2]*scaleX(), roi[3]*scaleY());
+  for (const z of ZONES) {
+    const c = COLORS[z.type] || '#888';
+    const [x, y, w, h] = z.rect;
+    ctx.strokeStyle = c; ctx.lineWidth = 2;
+    ctx.fillStyle = c + '22';
+    ctx.fillRect(x*sx(), y*sy(), w*sx(), h*sy());
+    ctx.strokeRect(x*sx(), y*sy(), w*sx(), h*sy());
+    ctx.fillStyle = c; ctx.font = '13px system-ui';
+    ctx.fillText(z.name, x*sx() + 4, y*sy() + 15);
+  }
+  if (temp) {
+    ctx.strokeStyle = COLORS[curType]; ctx.lineWidth = 2;
+    ctx.strokeRect(temp[0], temp[1], temp[2], temp[3]);
+  }
 }
+
 canvas.addEventListener('mousedown', e => { drawing = true; startX = e.offsetX; startY = e.offsetY; });
 canvas.addEventListener('mousemove', e => {
   if (!drawing) return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle = '#00e676'; ctx.lineWidth = 2;
-  ctx.strokeRect(startX, startY, e.offsetX-startX, e.offsetY-startY);
+  drawZones([startX, startY, e.offsetX-startX, e.offsetY-startY]);
 });
 canvas.addEventListener('mouseup', e => {
   drawing = false;
   const x = Math.min(startX, e.offsetX), y = Math.min(startY, e.offsetY);
   const w = Math.abs(e.offsetX-startX), h = Math.abs(e.offsetY-startY);
-  if (w < 8 || h < 8) return;
-  roi = [Math.round(x/scaleX()), Math.round(y/scaleY()), Math.round(w/scaleX()), Math.round(h/scaleY())];
-  drawRoi();
+  if (w < 8 || h < 8) { drawZones(); return; }
+  const rect = [Math.round(x/sx()), Math.round(y/sy()), Math.round(w/sx()), Math.round(h/sy())];
+  addZone(rect);
 });
 
-async function saveRoi() {
-  await fetch('api/roi', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({roi})});
-  document.getElementById('roiMsg').textContent = 'Saved ✓';
-  setTimeout(()=>document.getElementById('roiMsg').textContent='', 2000);
+function setType(t) {
+  curType = t;
+  document.getElementById('tFood').classList.toggle('on', t==='food');
+  document.getElementById('tWater').classList.toggle('on', t==='water');
 }
-async function clearRoi() {
-  roi = null; drawRoi();
-  await fetch('api/roi', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({roi:null})});
+function nextName(type) {
+  const base = type === 'food' ? 'Food bowl' : 'Water';
+  return base + ' ' + (ZONES.filter(z => z.type === type).length + 1);
+}
+function addZone(rect) {
+  const field = document.getElementById('zoneName');
+  const name = (field.value || '').trim() || nextName(curType);
+  ZONES.push({ id: 'z' + Math.random().toString(36).slice(2, 8), name, type: curType, rect });
+  field.value = '';
+  saveZones(); renderZones(); drawZones();
+}
+function deleteZone(id) { ZONES = ZONES.filter(z => z.id !== id); saveZones(); renderZones(); drawZones(); }
+function clearZones() { ZONES = []; saveZones(); renderZones(); drawZones(); }
+
+async function saveZones() {
+  await fetch('api/zones', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({zones: ZONES})});
+  const m = document.getElementById('zoneMsg'); m.textContent = 'Saved ✓';
+  setTimeout(() => m.textContent = '', 1500);
+}
+function renderZones() {
+  const box = document.getElementById('zoneList');
+  if (!ZONES.length) { box.innerHTML = '<span class="muted">No zones yet — draw one above.</span>'; return; }
+  box.innerHTML = ZONES.map(z =>
+    `<div class="zrow"><span class="dot" style="background:${COLORS[z.type]}"></span>
+      <b>${z.name}</b> <span class="muted">${z.type}</span>
+      <span style="flex:1"></span>
+      <button class="ghost" onclick="deleteZone('${z.id}')">Remove</button></div>`).join('');
+}
+async function loadZones() {
+  ZONES = await (await fetch('api/zones')).json();
+  renderZones(); drawZones();
 }
 
 async function train() {
   document.getElementById('trainMsg').textContent = 'Training…';
-  const r = await fetch('api/train', {method:'POST'});
-  const j = await r.json();
+  const j = await (await fetch('api/train', {method:'POST'})).json();
   document.getElementById('trainMsg').textContent = j.trained
     ? `Trained on ${j.samples} images ✓` : 'No labelled images yet.';
   loadCaptures();
 }
 
+function fmtTime(ts) { return ts ? new Date(ts).toLocaleTimeString() : 'never'; }
+
 async function loadStatus() {
-  const r = await fetch('api/status'); const j = await r.json();
+  const j = await (await fetch('api/status')).json();
   const s = j.status;
   const pill = (ok, on, off) => `<span class="pill ${ok?'ok':'bad'}">${ok?on:off}</span>`;
+  let nowLine = `Now: <b>${s.current_cat}</b>`;
+  if (s.current_cat !== 'none') nowLine += ` (${(s.current_confidence*100).toFixed(0)}%)`;
+  if (s.current_action && s.current_action !== 'none') nowLine += ` — ${s.current_action} @ ${s.current_zone}`;
   document.getElementById('status').innerHTML =
     pill(s.camera_connected,'Camera','No camera') +
     pill(s.mqtt_connected,'MQTT','No MQTT') +
     pill(s.model_ready,'Model ready','Model empty') +
-    `<div style="margin-top:10px">Now at bowls: <b>${s.current_cat}</b>` +
-    (s.current_cat!=='none' ? ` (${(s.current_confidence*100).toFixed(0)}%)` : '') + `</div>`;
+    `<div style="margin-top:10px">${nowLine}</div>`;
   let rows = '';
   for (const [name, c] of Object.entries(j.cats)) {
-    rows += `<tr><td><b>${name}</b></td><td>${c.eating?'🍽️ eating':'—'}</td>`
-         + `<td>${c.meals_today} meals today</td>`
-         + `<td class="muted">${c.last_eaten ? new Date(c.last_eaten).toLocaleString() : 'never'}</td></tr>`;
+    const doing = c.eating ? '🍽️ eating' : (c.drinking ? '💧 drinking' : '—');
+    rows += `<tr><td><b>${name}</b></td><td>${doing}</td>`
+         + `<td>${c.meals_today} 🍽️<br>${c.drinks_today} 💧</td>`
+         + `<td class="muted">ate ${fmtTime(c.last_eaten)}<br>drank ${fmtTime(c.last_drank)}</td></tr>`;
   }
   document.getElementById('catTable').innerHTML = rows;
-  if (j.roi) { roi = j.roi; drawRoi(); }
 }
 
 const SELECTED = new Set();
-
 async function loadCats() {
   CATS = await (await fetch('api/cats')).json();
   document.getElementById('catBtns').innerHTML =
     CATS.map(c => `<button onclick="assign('${c}')">${c}</button>`).join(' ');
 }
-
 function updateBar() {
   document.getElementById('selCount').textContent = SELECTED.size;
   document.getElementById('bar').hidden = SELECTED.size === 0;
@@ -215,25 +268,20 @@ function clearSel() {
 }
 async function assign(cat) {
   if (SELECTED.size === 0) return;
-  const files = [...SELECTED];
   await fetch('api/label_batch', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({files, cat})});
-  SELECTED.clear(); updateBar();
-  loadCaptures();
+    body: JSON.stringify({files: [...SELECTED], cat})});
+  SELECTED.clear(); updateBar(); loadCaptures();
 }
-
 async function loadCaptures() {
   const files = await (await fetch('api/captures')).json();
   const box = document.getElementById('captures');
   if (!files.length) {
     box.innerHTML = '<span class="muted">No captures yet. They appear here when a cat visits the bowls.</span>';
-    clearSel();
-    return;
+    clearSel(); return;
   }
   box.innerHTML = files.map(f =>
     `<div class="cap${SELECTED.has(f)?' sel':''}" data-file="${f}" onclick="toggleSel('${f}', this)">
        <img src="api/captures/${f}" loading="lazy"></div>`).join('');
-  // Drop selections whose files are gone.
   [...SELECTED].forEach(f => { if (!files.includes(f)) SELECTED.delete(f); });
   updateBar();
 }
@@ -244,11 +292,11 @@ function refreshFrame() { frame.src = 'api/frame.jpg?t=' + Date.now(); }
 function refreshSnap() { document.getElementById('snap').src = 'api/snapshot.jpg?t=' + Date.now(); }
 
 loadCats().then(loadCaptures);
+loadZones();
 loadStatus(); refreshFrame(); refreshSnap();
 setInterval(loadStatus, 2000);
 setInterval(refreshFrame, 1500);
 setInterval(refreshSnap, 3000);
-// Don't refresh (and wipe highlights) while a selection is in progress.
 setInterval(() => { if (SELECTED.size === 0) loadCaptures(); }, 8000);
 </script>
 </body>
@@ -275,29 +323,27 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
 
     @app.get("/api/status")
     def api_status():
-        data = state.snapshot_status()
-        data["roi"] = config.load_roi()
-        return jsonify(data)
+        return jsonify(state.snapshot_status())
 
     @app.get("/api/frame.jpg")
     def api_frame():
         jpg = state.get_frame()
-        if not jpg:
-            return ("", 204)
-        return Response(jpg, mimetype="image/jpeg")
+        return Response(jpg, mimetype="image/jpeg") if jpg else ("", 204)
 
     @app.get("/api/snapshot.jpg")
     def api_snapshot():
         jpg = state.get_snapshot()
-        if not jpg:
-            return ("", 204)
-        return Response(jpg, mimetype="image/jpeg")
+        return Response(jpg, mimetype="image/jpeg") if jpg else ("", 204)
 
-    @app.post("/api/roi")
-    def api_roi():
-        roi = (request.get_json(silent=True) or {}).get("roi")
-        config.save_roi(roi if roi else None)
-        return jsonify({"ok": True})
+    @app.get("/api/zones")
+    def api_zones_get():
+        return jsonify(config.load_zones())
+
+    @app.post("/api/zones")
+    def api_zones_post():
+        zones = (request.get_json(silent=True) or {}).get("zones", [])
+        config.save_zones(zones)
+        return jsonify({"ok": True, "zones": config.load_zones()})
 
     @app.get("/api/captures")
     def api_captures():
@@ -305,26 +351,7 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
 
     @app.get("/api/captures/<path:name>")
     def api_capture_img(name):
-        safe = secure_filename(name)
-        return send_from_directory(config.UNLABELED_DIR, safe)
-
-    @app.post("/api/label")
-    def api_label():
-        body = request.get_json(silent=True) or {}
-        fname = secure_filename(body.get("file", ""))
-        cat = body.get("cat", "")
-        src = os.path.join(config.UNLABELED_DIR, fname)
-        if not fname or not os.path.exists(src):
-            return jsonify({"ok": False, "error": "not found"}), 404
-        if cat == "_delete":
-            os.remove(src)
-            return jsonify({"ok": True})
-        if cat not in settings.cats:
-            return jsonify({"ok": False, "error": "unknown cat"}), 400
-        dst_dir = settings.dataset_dir_for(cat)
-        os.makedirs(dst_dir, exist_ok=True)
-        os.replace(src, os.path.join(dst_dir, fname))
-        return jsonify({"ok": True})
+        return send_from_directory(config.UNLABELED_DIR, secure_filename(name))
 
     @app.post("/api/label_batch")
     def api_label_batch():

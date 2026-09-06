@@ -48,22 +48,27 @@ hasn't eaten in a while.
 | `motion_min_area` | `1500` | Smallest changed area (px) that counts as motion. |
 | `eating_dwell_seconds` | `5` | How long a cat must stay before it counts as *eating* (filters cats passing by). |
 | `meal_cooldown_minutes` | `15` | Minimum minutes between counted meals for one cat. Repeated visits within this window count as one meal. |
+| `drink_dwell_seconds` | `3` | How long at a water zone before it counts as drinking (usually shorter than eating). |
+| `drink_cooldown_minutes` | `10` | Minimum minutes between counted drinks for one cat. |
 | `presence_grace_seconds` | `3` | Motion-free seconds tolerated before a visit is considered over (bridges a still cat blending into the background). |
+| `zone_coverage` | `0.3` | Fraction of a bowl zone the cat must cover (0–1) to count as using it. |
+| `require_lean_in` | `true` | Only count when the cat is bent over the bowl, not just sitting in the zone. Turn off for a top-down camera. |
 | `cats` | `[Ellie]` | Your cats' names. |
 | `classifier_confidence` | `0.55` | Below this, a cat is reported as `unknown`. |
 | `save_captures` | `true` | Save crops so you can label them and improve recognition. |
 | `jpeg_quality` | `80` | Quality of saved snapshots and the MQTT image. |
 | `log_level` | `info` | Add-on log verbosity. |
 
-The **bowl region (ROI)** is set in the web UI, not here.
+The **zones** (food and water bowls) are drawn in the web UI, not here.
 
 ---
 
 ## First-run workflow
 
-1. **Set the region.** In the web UI, drag a rectangle over the bowls on the
-   live frame and click **Save ROI**. Only motion inside it triggers captures,
-   so movement elsewhere in the room is ignored.
+1. **Draw the zones.** In the web UI, pick **Food** or **Water**, then drag a box
+   around each bowl or fountain (draw it a little larger than the bowl so a
+   nudged bowl after cleaning still fits). Add as many as are out — e.g. two food
+   bowls and one fountain. Zones save as you draw; remove any from the list.
 2. **Let it collect examples.** Over the next day or two, each time a cat visits
    the bowls CatWatch saves a cropped photo under *Captures to label*.
 3. **Label them.** Click the captures that show the same cat to select them
@@ -76,15 +81,26 @@ The **bowl region (ROI)** is set in the web UI, not here.
 5. **Keep improving.** Whenever recognition is shaky, label a few more fresh
    captures and retrain. More varied examples = better accuracy.
 
-### How "eating" is decided
+### How eating and drinking are decided
 
-A meal is registered when a recognised cat stays in the bowl region
-continuously for at least `eating_dwell_seconds`. At that moment the cat's
-*eating* turns on, *last eaten* is stamped, *meals today* increments, and a
-snapshot is published. When motion stops, *eating* turns off.
+A cat is recognised from the camera; whichever zone it covers decides the
+action. To count, the cat must cover at least `zone_coverage` of the zone **and**
+be leaning into it (`require_lean_in`) — its body rising above the bowl, head
+down. That posture gate is what separates a cat actually eating from one sitting
+*beside* the bowl. A **food** zone produces *eating*; a **water** zone produces
+*drinking*.
 
-This is a practical proxy for "at the bowl", not a guarantee the cat swallowed
-anything — but for "is this cat visiting the food and when" it's reliable.
+Once a cat holds that over a zone for the dwell time (`eating_dwell_seconds` /
+`drink_dwell_seconds`), the matching sensor turns on and the timestamp is
+stamped. A new *meal* or *drink* is only counted if it's been at least the
+cooldown (`meal_cooldown_minutes` / `drink_cooldown_minutes`) since that cat's
+last one, so grazing counts once. Brief motion gaps (a still cat blends into the
+background) are bridged by `presence_grace_seconds`.
+
+Because the coverage is measured relative to each zone, a bowl that drifts a bit
+inside its zone after cleaning still works — just keep the zone a touch larger
+than the bowl. If a top-down camera makes the lean-in test fail, set
+`require_lean_in: false`. If counts look high or low, tune the cooldowns.
 
 ---
 
@@ -92,15 +108,17 @@ anything — but for "is this cat visiting the food and when" it's reliable.
 
 CatWatch appears as a single **CatWatch** device with:
 
-- **Activity** (`binary_sensor`, motion) — something is at the bowls.
+- **Activity** (`binary_sensor`, motion) — something is at the feeding area.
 - **Current cat** (`sensor`) — who is there right now (`none` / `unknown` / a name).
+- **Current zone** (`sensor`) — which bowl/fountain is in use.
+- **Current action** (`sensor`) — `eating` / `drinking` / `none`.
 - **Snapshot** (`image`) — the latest capture.
 
 And, for each cat, e.g. *Ellie*:
 
-- **Ellie eating** (`binary_sensor`) — on while she's at the bowl.
-- **Ellie last eaten** (`sensor`, timestamp).
-- **Ellie meals today** (`sensor`, resets at midnight).
+- **Ellie eating** / **Ellie drinking** (`binary_sensor`) — on while she is.
+- **Ellie last eaten** / **Ellie last drank** (`sensor`, timestamp).
+- **Ellie meals today** / **Ellie drinks today** (`sensor`, reset at midnight).
 
 ---
 

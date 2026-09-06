@@ -7,18 +7,27 @@ import threading
 class SharedState:
     def __init__(self, cat_names):
         self._lock = threading.Lock()
-        self.latest_frame_jpg = None      # newest raw camera frame (for ROI editor)
+        self.latest_frame_jpg = None      # newest raw camera frame (for zone editor)
         self.latest_snapshot_jpg = None   # newest event snapshot (annotated)
         self.status = {
             "camera_connected": False,
             "activity": False,
             "current_cat": "none",
             "current_confidence": 0.0,
+            "current_zone": "none",
+            "current_action": "none",
             "model_ready": False,
             "mqtt_connected": False,
         }
         self.cats = {
-            name: {"eating": False, "last_eaten": None, "meals_today": 0}
+            name: {
+                "eating": False,
+                "drinking": False,
+                "last_eaten": None,
+                "last_drank": None,
+                "meals_today": 0,
+                "drinks_today": 0,
+            }
             for name in cat_names
         }
 

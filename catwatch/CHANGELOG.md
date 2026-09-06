@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+- Multiple typed zones instead of one region. Draw as many **food** and **water**
+  zones as you like (e.g. 2 bowls + 1 fountain) in the web UI; each is coloured
+  and named, and you can add/remove them any time. Existing single-ROI setups are
+  migrated automatically to one food zone.
+- Smarter eating/drinking. A cat now has to actually cover a zone and lean into
+  it (a posture gate) to count, so a cat sitting *beside* the bowl no longer
+  registers. Food zones produce eating, water zones produce drinking.
+- Tolerant of bowls moving a little (after cleaning, etc.) — the gate is measured
+  relative to each zone, so a bowl nudged within its zone still works.
+- New Home Assistant entities per cat: **drinking**, **last drank**, **drinks
+  today**, plus global **current zone** and **current action** sensors.
+- New options: `zone_coverage`, `require_lean_in`, `drink_dwell_seconds`,
+  `drink_cooldown_minutes`.
+
 ## 0.1.3
 
 - Fix wildly inflated meal counts. A cat holding still at the bowl was absorbed

@@ -28,11 +28,31 @@ configuration:
       Minimum minutes between counted meals for the same cat. Repeated visits
       within this window are treated as one meal, so a cat grazing at the bowl
       isn't counted dozens of times.
+  drink_dwell_seconds:
+    name: Drinking dwell time
+    description: >-
+      How long a cat must stay at a water zone before it counts as drinking.
+      Drinking is briefer than eating, so this is usually shorter.
+  drink_cooldown_minutes:
+    name: Drink cooldown
+    description: >-
+      Minimum minutes between counted drinks for the same cat.
   presence_grace_seconds:
     name: Presence grace period
     description: >-
       Seconds of no motion tolerated before a visit is considered over. Bridges
       the brief gaps when a still cat blends into the background.
+  zone_coverage:
+    name: Zone coverage threshold
+    description: >-
+      Fraction of a bowl zone the cat must cover (0-1) before it counts as using
+      that zone. Higher = the cat must be more squarely over the bowl.
+  require_lean_in:
+    name: Require lean-in posture
+    description: >-
+      Only count eating/drinking when the cat is bent over the bowl (body rising
+      above the zone), not merely sitting inside a large zone. Turn off if your
+      camera looks straight down.
   cats:
     name: Cat names
     description: >-

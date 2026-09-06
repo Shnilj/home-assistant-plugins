@@ -1,12 +1,15 @@
 """MQTT publishing with Home Assistant device-based discovery.
 
 Creates a single "CatWatch" device with:
-  - Activity            (binary_sensor, motion)  — something is at the bowls
-  - Current cat         (sensor)                 — who is there right now
-  - Snapshot            (image)                  — latest capture
-  - <Cat> eating        (binary_sensor)          — per cat, on while eating
-  - <Cat> last eaten    (sensor, timestamp)      — per cat
-  - <Cat> meals today   (sensor)                 — per cat, resets at midnight
+  - Activity        (binary_sensor, motion)  — something is at the bowls
+  - Current cat     (sensor)                  — who is there right now
+  - Current zone    (sensor)                  — which bowl/fountain
+  - Current action  (sensor)                  — eating / drinking / none
+  - Snapshot        (image)                   — latest capture
+  and, per cat:
+  - <Cat> eating / drinking  (binary_sensor)
+  - <Cat> last eaten / last drank  (sensor, timestamp)
+  - <Cat> meals today / drinks today  (sensor)
 """
 from __future__ import annotations
 
@@ -25,6 +28,12 @@ BASE = "catwatch"
 STATUS_TOPIC = f"{BASE}/status"
 DISCOVERY_TOPIC = f"{DISCOVERY_PREFIX}/device/{DEVICE_ID}/config"
 SNAPSHOT_TOPIC = f"{BASE}/snapshot"
+
+# Per-action metadata: (state key suffix, timestamp suffix, count suffix)
+_ACTION = {
+    "eating": ("eating", "last_eaten", "meals"),
+    "drinking": ("drinking", "last_drank", "drinks"),
+}
 
 
 class MqttPublisher:
@@ -94,6 +103,20 @@ class MqttPublisher:
                 "state_topic": f"{BASE}/current_cat",
                 "unique_id": "catwatch_current_cat",
             },
+            "current_zone": {
+                "p": "sensor",
+                "name": "Current zone",
+                "icon": "mdi:map-marker",
+                "state_topic": f"{BASE}/current_zone",
+                "unique_id": "catwatch_current_zone",
+            },
+            "current_action": {
+                "p": "sensor",
+                "name": "Current action",
+                "icon": "mdi:silverware-fork-knife",
+                "state_topic": f"{BASE}/current_action",
+                "unique_id": "catwatch_current_action",
+            },
             "snapshot": {
                 "p": "image",
                 "name": "Snapshot",
@@ -104,35 +127,36 @@ class MqttPublisher:
         }
         for slug, name in self.s.cat_slugs.items():
             cmps[f"{slug}_eating"] = {
-                "p": "binary_sensor",
-                "name": f"{name} eating",
-                "icon": "mdi:cat",
-                "state_topic": f"{BASE}/{slug}/eating",
-                "unique_id": f"catwatch_{slug}_eating",
+                "p": "binary_sensor", "name": f"{name} eating", "icon": "mdi:cat",
+                "state_topic": f"{BASE}/{slug}/eating", "unique_id": f"catwatch_{slug}_eating",
+            }
+            cmps[f"{slug}_drinking"] = {
+                "p": "binary_sensor", "name": f"{name} drinking", "icon": "mdi:cup-water",
+                "state_topic": f"{BASE}/{slug}/drinking", "unique_id": f"catwatch_{slug}_drinking",
             }
             cmps[f"{slug}_last_eaten"] = {
-                "p": "sensor",
-                "name": f"{name} last eaten",
-                "device_class": "timestamp",
-                "state_topic": f"{BASE}/{slug}/last_eaten",
-                "unique_id": f"catwatch_{slug}_last_eaten",
+                "p": "sensor", "name": f"{name} last eaten", "device_class": "timestamp",
+                "state_topic": f"{BASE}/{slug}/last_eaten", "unique_id": f"catwatch_{slug}_last_eaten",
+            }
+            cmps[f"{slug}_last_drank"] = {
+                "p": "sensor", "name": f"{name} last drank", "device_class": "timestamp",
+                "state_topic": f"{BASE}/{slug}/last_drank", "unique_id": f"catwatch_{slug}_last_drank",
             }
             cmps[f"{slug}_meals"] = {
-                "p": "sensor",
-                "name": f"{name} meals today",
-                "icon": "mdi:bowl-mix",
-                "state_class": "total",
-                "state_topic": f"{BASE}/{slug}/meals",
+                "p": "sensor", "name": f"{name} meals today", "icon": "mdi:bowl-mix",
+                "state_class": "total", "state_topic": f"{BASE}/{slug}/meals",
                 "unique_id": f"catwatch_{slug}_meals",
+            }
+            cmps[f"{slug}_drinks"] = {
+                "p": "sensor", "name": f"{name} drinks today", "icon": "mdi:cup-water",
+                "state_class": "total", "state_topic": f"{BASE}/{slug}/drinks",
+                "unique_id": f"catwatch_{slug}_drinks",
             }
 
         return {
             "dev": {
-                "ids": DEVICE_ID,
-                "name": "CatWatch",
-                "mf": "CatWatch",
-                "mdl": "Local cat recognition",
-                "sw": __version__,
+                "ids": DEVICE_ID, "name": "CatWatch", "mf": "CatWatch",
+                "mdl": "Local cat recognition", "sw": __version__,
             },
             "o": {"name": "catwatch", "sw": __version__},
             "availability_topic": STATUS_TOPIC,
@@ -159,14 +183,23 @@ class MqttPublisher:
     def publish_current_cat(self, name: str):
         self.pub(f"{BASE}/current_cat", name or "none")
 
-    def publish_cat_eating(self, slug: str, eating: bool):
-        self.pub(f"{BASE}/{slug}/eating", "ON" if eating else "OFF")
+    def publish_current_zone(self, name: str):
+        self.pub(f"{BASE}/current_zone", name or "none")
 
-    def publish_cat_last_eaten(self, slug: str, iso_ts: str):
-        self.pub(f"{BASE}/{slug}/last_eaten", iso_ts)
+    def publish_current_action(self, action: str):
+        self.pub(f"{BASE}/current_action", action or "none")
 
-    def publish_cat_meals(self, slug: str, meals: int):
-        self.pub(f"{BASE}/{slug}/meals", str(meals))
+    def publish_action_state(self, slug: str, action: str, active: bool):
+        key = _ACTION[action][0]
+        self.pub(f"{BASE}/{slug}/{key}", "ON" if active else "OFF")
+
+    def publish_action_timestamp(self, slug: str, action: str, iso_ts: str):
+        key = _ACTION[action][1]
+        self.pub(f"{BASE}/{slug}/{key}", iso_ts)
+
+    def publish_action_count(self, slug: str, action: str, count: int):
+        key = _ACTION[action][2]
+        self.pub(f"{BASE}/{slug}/{key}", str(count))
 
     def publish_snapshot(self, jpg_bytes: bytes):
         if jpg_bytes:

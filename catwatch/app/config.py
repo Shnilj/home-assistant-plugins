@@ -1,7 +1,7 @@
 """Configuration loading and shared paths.
 
 Add-on options are written by the Supervisor to ``/data/options.json``. Runtime
-UI settings that the app itself edits (currently the ROI) live in
+UI settings that the app itself edits (the zones) live in
 ``/config/settings.json`` so they persist and are user-visible.
 """
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from dataclasses import dataclass, field
 
 # --- Directories -----------------------------------------------------------
@@ -26,6 +27,8 @@ UNLABELED_DIR = os.path.join(DATASET_DIR, "_unlabeled")
 # Reserved dataset folder names that are not real cat labels.
 RESERVED_LABELS = {"_unlabeled"}
 
+ZONE_TYPES = ("food", "water")
+
 _DEFAULTS = {
     "rtsp_url": "",
     "detection_fps": 3,
@@ -33,7 +36,11 @@ _DEFAULTS = {
     "motion_min_area": 1500,
     "eating_dwell_seconds": 5,
     "meal_cooldown_minutes": 15,
+    "drink_dwell_seconds": 3,
+    "drink_cooldown_minutes": 10,
     "presence_grace_seconds": 3,
+    "zone_coverage": 0.3,
+    "require_lean_in": True,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -64,7 +71,11 @@ class Settings:
     motion_min_area: int = 1500
     eating_dwell_seconds: int = 5
     meal_cooldown_minutes: int = 15
+    drink_dwell_seconds: int = 3
+    drink_cooldown_minutes: int = 10
     presence_grace_seconds: int = 3
+    zone_coverage: float = 0.3
+    require_lean_in: bool = True
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -84,6 +95,14 @@ class Settings:
 
     def dataset_dir_for(self, label: str) -> str:
         return os.path.join(DATASET_DIR, label)
+
+    def dwell_for(self, action: str) -> int:
+        return self.drink_dwell_seconds if action == "drinking" else self.eating_dwell_seconds
+
+    def cooldown_for(self, action: str) -> int:
+        return (
+            self.drink_cooldown_minutes if action == "drinking" else self.meal_cooldown_minutes
+        )
 
 
 def load_settings() -> Settings:
@@ -106,7 +125,11 @@ def load_settings() -> Settings:
         motion_min_area=_int("motion_min_area"),
         eating_dwell_seconds=_int("eating_dwell_seconds"),
         meal_cooldown_minutes=_int("meal_cooldown_minutes"),
+        drink_dwell_seconds=_int("drink_dwell_seconds"),
+        drink_cooldown_minutes=_int("drink_cooldown_minutes"),
         presence_grace_seconds=_int("presence_grace_seconds"),
+        zone_coverage=float(opts.get("zone_coverage", 0.3)),
+        require_lean_in=bool(opts.get("require_lean_in", True)),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),
@@ -119,23 +142,62 @@ def load_settings() -> Settings:
     )
 
 
-def load_roi() -> list | None:
-    """Return [x, y, w, h] in pixels, or None for the whole frame."""
-    roi = _read_json(SETTINGS_PATH).get("roi")
-    if isinstance(roi, list) and len(roi) == 4:
-        try:
-            return [int(v) for v in roi]
-        except (TypeError, ValueError):
-            return None
-    return None
+# --- Zones -----------------------------------------------------------------
+def _valid_zone(z) -> dict | None:
+    """Coerce a raw dict into a valid zone, or return None."""
+    if not isinstance(z, dict):
+        return None
+    ztype = z.get("type")
+    rect = z.get("rect")
+    if ztype not in ZONE_TYPES:
+        return None
+    if not (isinstance(rect, (list, tuple)) and len(rect) == 4):
+        return None
+    try:
+        rect = [int(v) for v in rect]
+    except (TypeError, ValueError):
+        return None
+    if rect[2] < 4 or rect[3] < 4:
+        return None
+    default_name = "Food bowl" if ztype == "food" else "Water"
+    return {
+        "id": str(z.get("id") or uuid.uuid4().hex[:8]),
+        "name": str(z.get("name") or default_name),
+        "type": ztype,
+        "rect": rect,
+    }
 
 
-def save_roi(roi: list | None) -> None:
+def load_zones() -> list:
+    """Return the list of valid zones. Migrates a legacy single ``roi`` to one
+    food zone so existing setups keep working."""
     data = _read_json(SETTINGS_PATH)
-    if roi is None:
-        data.pop("roi", None)
-    else:
-        data["roi"] = [int(v) for v in roi]
+    zones = []
+    raw = data.get("zones")
+    if isinstance(raw, list):
+        for z in raw:
+            v = _valid_zone(z)
+            if v:
+                zones.append(v)
+    if not zones:
+        roi = data.get("roi")
+        if isinstance(roi, list) and len(roi) == 4:
+            v = _valid_zone({"id": "legacy", "name": "Food bowl", "type": "food", "rect": roi})
+            if v:
+                zones = [v]
+    return zones
+
+
+def save_zones(zones) -> None:
+    valid = []
+    if isinstance(zones, list):
+        for z in zones:
+            v = _valid_zone(z)
+            if v:
+                valid.append(v)
+    data = _read_json(SETTINGS_PATH)
+    data["zones"] = valid
+    data.pop("roi", None)  # legacy key no longer used
     os.makedirs(CONFIG_DIR, exist_ok=True)
     with open(SETTINGS_PATH, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2)

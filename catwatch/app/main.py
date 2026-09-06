@@ -2,6 +2,10 @@
 
 Runs the capture + motion + recognition loop in the main thread and the ingress
 web UI in a background thread.
+
+A cat is recognised from the motion crop; whichever zone it covers (and leans
+into) decides the action — eating over a food zone, drinking over a water zone.
+Dwell time gates the action; a per-cat, per-action cooldown gates the count.
 """
 from __future__ import annotations
 
@@ -13,22 +17,24 @@ from datetime import datetime
 
 import cv2
 
-from . import classifier, config
+from . import classifier, config, zones
 from .capture import RtspCamera
-from .motion import MotionDetector, clamp_roi
+from .motion import MotionDetector
 from .mqtt_client import MqttPublisher
 from .state import ModelHolder, SharedState
 
 log = logging.getLogger("catwatch")
 
 _LEVELS = {
-    "trace": logging.DEBUG,
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "notice": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
+    "trace": logging.DEBUG, "debug": logging.DEBUG, "info": logging.INFO,
+    "notice": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR,
     "fatal": logging.CRITICAL,
+}
+
+# action -> (SharedState eating/drinking key, timestamp key, count key)
+_ACTION_KEYS = {
+    "eating": ("eating", "last_eaten", "meals_today"),
+    "drinking": ("drinking", "last_drank", "drinks_today"),
 }
 
 
@@ -37,32 +43,27 @@ def _encode_jpg(img, quality: int) -> bytes | None:
     return buf.tobytes() if ok else None
 
 
-def _crop(frame, bbox, roi, pad=0.15):
-    """Crop the cat region: prefer the motion bbox, fall back to the ROI."""
-    h, w = frame.shape[:2]
-    if bbox is not None:
-        x, y, bw, bh = bbox
-        px, py = int(bw * pad), int(bh * pad)
-        x0, y0 = max(0, x - px), max(0, y - py)
-        x1, y1 = min(w, x + bw + px), min(h, y + bh + py)
-    elif roi is not None:
-        x0, y0, rw, rh = roi
-        x1, y1 = x0 + rw, y0 + rh
-    else:
+def _crop(frame, bbox, pad=0.15):
+    """Crop the cat region from the motion bounding box (with padding)."""
+    if bbox is None:
         return frame
+    h, w = frame.shape[:2]
+    x, y, bw, bh = bbox
+    px, py = int(bw * pad), int(bh * pad)
+    x0, y0 = max(0, x - px), max(0, y - py)
+    x1, y1 = min(w, x + bw + px), min(h, y + bh + py)
     if x1 - x0 < 8 or y1 - y0 < 8:
         return frame
     return frame[y0:y1, x0:x1]
 
 
-def _annotate(frame, bbox, label, conf):
+def _annotate(frame, bbox, caption):
     img = frame.copy()
     if bbox is not None:
         x, y, w, h = bbox
         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 200, 0), 2)
-    text = f"{label} {conf:.2f}" if label != "none" else "none"
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cv2.putText(img, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
+    cv2.putText(img, caption, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 0), 2)
     cv2.putText(img, stamp, (10, img.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255), 1)
     return img
@@ -79,74 +80,66 @@ class CatWatch:
             settings,
             on_state_change=lambda c: self.state.update_status(mqtt_connected=c),
         )
-        # presence state machine
-        self._present_since = None
+        # activity (any motion at the feeding area)
+        self._activity_on = False
+        self._activity_since = None
         self._absent_since = None
-        self._active_label = "unknown"
-        self._eating_registered = False
-        self._eating_cat = None
         self._capture_saved = False
-        # When each cat's last meal was counted (for the cooldown debounce).
-        self._last_meal_ts = {name: None for name in settings.cats}
-        self._roi = None
-        self._roi_reloaded = 0.0
+        # interaction (a cat using a specific zone)
+        self._interaction = None
+        self._last_action_ts = {n: {"eating": None, "drinking": None} for n in settings.cats}
+        # zones
+        self._zones = []
+        self._zones_reloaded = 0.0
         self._last_ui_frame = 0.0
         self._today = datetime.now().date()
 
     # -- helpers ------------------------------------------------------------
-    def _reload_roi(self):
+    def _reload_zones(self):
         now = time.time()
-        if now - self._roi_reloaded > 2.0:
-            self._roi = config.load_roi()
-            self._roi_reloaded = now
+        if now - self._zones_reloaded > 2.0:
+            self._zones = config.load_zones()
+            self._zones_reloaded = now
 
     def _maybe_reset_daily(self):
         today = datetime.now().date()
         if today != self._today:
             self._today = today
             for name in self.s.cats:
-                self.state.update_cat(name, meals_today=0)
-                self.mqtt.publish_cat_meals(config.slugify(name), 0)
-                self._last_meal_ts[name] = None
-            log.info("Daily meal counters reset")
+                self.state.update_cat(name, meals_today=0, drinks_today=0)
+                slug = config.slugify(name)
+                self.mqtt.publish_action_count(slug, "eating", 0)
+                self.mqtt.publish_action_count(slug, "drinking", 0)
+                self._last_action_ts[name] = {"eating": None, "drinking": None}
+            log.info("Daily counters reset")
 
-    def _start_eating(self, name, frame, bbox, conf, now):
-        """Mark a cat as eating. Counts a *new* meal only if enough time has
-        passed since this cat's last one (cooldown), so a single feeding window
-        — even when split into flickers by the motion detector — is one meal."""
-        slug = config.slugify(name)
-        ts = datetime.now().astimezone()
-        cooldown = self.s.meal_cooldown_minutes * 60
-        last = self._last_meal_ts.get(name)
-        new_meal = last is None or (now - last) >= cooldown
-
-        if new_meal:
-            meals = self.state.cats[name]["meals_today"] + 1
-            self.state.update_cat(name, meals_today=meals)
-            self.mqtt.publish_cat_meals(slug, meals)
-            log.info("%s — new meal #%d (conf %.2f)", name, meals, conf)
+    def _set_activity(self, on, now, cat="none", conf=0.0):
+        if on:
+            if not self._activity_on:
+                self._activity_on = True
+                self._activity_since = now
+                self._capture_saved = False
+                self.mqtt.publish_activity(True)
+            self.state.update_status(activity=True, current_cat=cat, current_confidence=conf)
+            self.mqtt.publish_current_cat(cat)
         else:
-            log.debug("%s still in the same meal window (conf %.2f)", name, conf)
-        self._last_meal_ts[name] = now
+            if self._activity_on:
+                self._activity_on = False
+                self.mqtt.publish_activity(False)
+                self.mqtt.publish_current_cat("none")
+                self.mqtt.publish_current_zone("none")
+                self.mqtt.publish_current_action("none")
+            self.state.update_status(
+                activity=False, current_cat="none", current_confidence=0.0,
+                current_zone="none", current_action="none",
+            )
+            self._absent_since = None
+            self._activity_since = None
 
-        self.state.update_cat(name, eating=True, last_eaten=ts.isoformat())
-        self.mqtt.publish_cat_eating(slug, True)
-        self.mqtt.publish_cat_last_eaten(slug, ts.isoformat())
-
-        annotated = _annotate(frame, bbox, name, conf)
-        jpg = _encode_jpg(annotated, self.s.jpeg_quality)
-        if jpg:
-            self.state.set_snapshot(jpg)
-            self.mqtt.publish_snapshot(jpg)
-            # Only keep a snapshot file on disk for an actual new meal, not for
-            # every flicker within the same feeding window.
-            if new_meal:
-                fname = f"{slug}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
-                try:
-                    with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
-                        fh.write(jpg)
-                except OSError as exc:
-                    log.warning("Could not write snapshot: %s", exc)
+    def _publish_current(self, zone_name, action):
+        self.state.update_status(current_zone=zone_name, current_action=action)
+        self.mqtt.publish_current_zone(zone_name)
+        self.mqtt.publish_current_action(action)
 
     def _save_capture(self, crop, guessed, conf):
         if not self.s.save_captures or crop is None or crop.size == 0:
@@ -161,21 +154,74 @@ class CatWatch:
             except OSError as exc:
                 log.warning("Could not write capture: %s", exc)
 
-    def _end_presence(self):
-        if self._present_since is None:
-            return
-        self.state.update_status(activity=False, current_cat="none", current_confidence=0.0)
-        self.mqtt.publish_activity(False)
-        self.mqtt.publish_current_cat("none")
-        if self._eating_cat:
-            self.state.update_cat(self._eating_cat, eating=False)
-            self.mqtt.publish_cat_eating(config.slugify(self._eating_cat), False)
-        self._present_since = None
-        self._absent_since = None
-        self._active_label = "unknown"
-        self._eating_registered = False
-        self._eating_cat = None
-        self._capture_saved = False
+    def _register_action(self, action, cat, frame, bbox, conf, now, zone):
+        """Turn on the eating/drinking sensor and count a new event only if the
+        cooldown for this cat+action has elapsed (so one feeding/drinking window
+        counts once, even when the motion flickers)."""
+        slug = config.slugify(cat)
+        ts = datetime.now().astimezone()
+        state_key, ts_key, count_key = _ACTION_KEYS[action]
+        cooldown = self.s.cooldown_for(action) * 60
+        last = self._last_action_ts[cat][action]
+        new_event = last is None or (now - last) >= cooldown
+
+        if new_event:
+            count = self.state.cats[cat][count_key] + 1
+            self.state.update_cat(cat, **{count_key: count})
+            self.mqtt.publish_action_count(slug, action, count)
+            log.info("%s — %s at %s (#%d, conf %.2f)", cat, action, zone["name"], count, conf)
+        self._last_action_ts[cat][action] = now
+
+        self.state.update_cat(cat, **{state_key: True, ts_key: ts.isoformat()})
+        self.mqtt.publish_action_state(slug, action, True)
+        self.mqtt.publish_action_timestamp(slug, action, ts.isoformat())
+
+        verb = "eating" if action == "eating" else "drinking"
+        annotated = _annotate(frame, bbox, f"{cat} {verb} - {zone['name']}")
+        jpg = _encode_jpg(annotated, self.s.jpeg_quality)
+        if jpg:
+            self.state.set_snapshot(jpg)
+            self.mqtt.publish_snapshot(jpg)
+            if new_event:
+                fname = f"{slug}_{action}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
+                try:
+                    with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
+                        fh.write(jpg)
+                except OSError as exc:
+                    log.warning("Could not write snapshot: %s", exc)
+
+    def _update_interaction(self, zone, action, cat, frame, bbox, conf, now):
+        I = self._interaction
+        if (I is None or I["zone_id"] != zone["id"] or I["cat"] != cat
+                or I["action"] != action):
+            self._end_interaction()
+            self._interaction = {
+                "zone_id": zone["id"], "zone_name": zone["name"], "action": action,
+                "cat": cat, "since": now, "last_seen": now, "counted": False,
+            }
+            I = self._interaction
+        else:
+            I["last_seen"] = now
+        if not I["counted"] and (now - I["since"]) >= self.s.dwell_for(action):
+            self._register_action(action, cat, frame, bbox, conf, now, zone)
+            I["counted"] = True
+
+    def _end_interaction(self):
+        I = self._interaction
+        if I and I["counted"]:
+            state_key = _ACTION_KEYS[I["action"]][0]
+            self.state.update_cat(I["cat"], **{state_key: False})
+            self.mqtt.publish_action_state(config.slugify(I["cat"]), I["action"], False)
+        self._interaction = None
+
+    def _expire_interaction(self, now):
+        I = self._interaction
+        if I and (now - I["last_seen"]) >= self.s.presence_grace_seconds:
+            self._end_interaction()
+
+    def _clear(self):
+        self._set_activity(False, time.time())
+        self._end_interaction()
 
     # -- main loop ----------------------------------------------------------
     def run(self):
@@ -183,15 +229,13 @@ class CatWatch:
         self.mqtt.start()
         interval = 1.0 / max(1, self.s.detection_fps)
         log.info("Processing loop started at %d fps", self.s.detection_fps)
-
         while True:
             loop_start = time.time()
             try:
                 self._tick()
             except Exception as exc:  # noqa: BLE001
                 log.exception("Error in processing loop: %s", exc)
-            elapsed = time.time() - loop_start
-            time.sleep(max(0.0, interval - elapsed))
+            time.sleep(max(0.0, interval - (time.time() - loop_start)))
 
     def _tick(self):
         self._maybe_reset_daily()
@@ -201,10 +245,9 @@ class CatWatch:
             model_ready=self.model_holder.get().ready,
         )
         if frame is None:
-            self._end_presence()
+            self._clear()
             return
 
-        # Keep a recent frame available to the ROI editor (throttled).
         now = time.time()
         if now - self._last_ui_frame > 0.5:
             jpg = _encode_jpg(frame, self.s.jpeg_quality)
@@ -212,49 +255,40 @@ class CatWatch:
                 self.state.set_frame(jpg)
             self._last_ui_frame = now
 
-        self._reload_roi()
-        motion, area, bbox = self.motion.process(frame, self._roi)
+        self._reload_zones()
+        region = zones.detect_region(self._zones, frame.shape)
+        motion, area, bbox = self.motion.process(frame, region)
 
-        if not motion:
-            # Don't end the presence on the first still frame — a cat holding
-            # still gets absorbed into the background and motion flickers off.
-            # Only end after motion has been absent for the grace period.
-            if self._present_since is not None:
+        if not motion or bbox is None:
+            # Debounce: a still cat blends into the background and flickers off.
+            if self._activity_on:
                 if self._absent_since is None:
                     self._absent_since = now
                 elif (now - self._absent_since) >= self.s.presence_grace_seconds:
-                    self._end_presence()
+                    self._set_activity(False, now)
+            self._expire_interaction(now)
             return
 
-        # Motion present: cancel any pending "absent" timer.
         self._absent_since = None
-
-        crop = _crop(frame, bbox, clamp_roi(self._roi, frame.shape))
-        model = self.model_holder.get()
-        label, conf = model.predict(crop)
+        crop = _crop(frame, bbox)
+        label, conf = self.model_holder.get().predict(crop)
         display = label if (conf >= self.s.classifier_confidence and label != "unknown") else "unknown"
+        self._set_activity(True, now, display, conf)
 
-        self.state.update_status(activity=True, current_cat=display, current_confidence=conf)
-        self.mqtt.publish_activity(True)
-        self.mqtt.publish_current_cat(display)
-
-        if self._present_since is None:
-            self._present_since = now
-        self._active_label = display
-
-        dwell_ok = (now - self._present_since) >= self.s.eating_dwell_seconds
-
-        # Gather a training capture shortly after a cat settles in.
-        if not self._capture_saved and (now - self._present_since) >= min(
-            1.0, self.s.eating_dwell_seconds
-        ):
+        if not self._capture_saved and self._activity_since and (now - self._activity_since) >= 1.0:
             self._save_capture(crop, display, conf)
             self._capture_saved = True
 
-        if dwell_ok and not self._eating_registered and display != "unknown":
-            self._start_eating(display, frame, bbox, conf, now)
-            self._eating_registered = True
-            self._eating_cat = display
+        best, _cov = zones.pick_zone(bbox, self._zones, self.s)
+        if best is not None and display != "unknown":
+            action = "eating" if best["type"] == "food" else "drinking"
+            self._update_interaction(best, action, display, frame, bbox, conf, now)
+            counted = self._interaction and self._interaction["counted"]
+            self._publish_current(best["name"], action if counted else f"approaching {action}")
+        else:
+            self._publish_current("none", "none")
+
+        self._expire_interaction(now)
 
 
 def main():
@@ -268,9 +302,7 @@ def main():
 
     app = CatWatch(settings)
 
-    # Web UI (ingress) in a background thread.
-    from .web.server import serve  # local import to avoid import cost if unused
-
+    from .web.server import serve  # local import
     threading.Thread(
         target=serve, args=(app.state, settings, app.model_holder, app.camera),
         name="web", daemon=True,
