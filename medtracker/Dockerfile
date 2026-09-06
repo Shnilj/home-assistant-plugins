@@ -8,7 +8,7 @@ FROM ghcr.io/home-assistant/${BUILD_ARCH}-base-debian:bookworm
 
 LABEL org.opencontainers.image.title="MedTracker" \
       org.opencontainers.image.description="Per-person/animal medication scheduling and adherence for Home Assistant" \
-      org.opencontainers.image.source="https://github.com/jensdescamps/home-assistant-plugins"
+      org.opencontainers.image.source="https://github.com/Shnilj/home-assistant-plugins"
 
 ENV LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1 \

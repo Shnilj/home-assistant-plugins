@@ -27,7 +27,7 @@ optional inventory / low-stock warning and a phone-friendly web UI.
 1. In Home Assistant go to **Settings → Add-ons → Add-on Store**.
 2. Open the **⋮** menu (top-right) → **Repositories**.
 3. Add this repository's URL:
-   `https://github.com/jensdescamps/home-assistant-plugins`
+   `https://github.com/Shnilj/home-assistant-plugins`
 4. The add-ons above appear in the store. Click one to install.
 
 > Developing locally? You can also drop this folder into the Supervisor's

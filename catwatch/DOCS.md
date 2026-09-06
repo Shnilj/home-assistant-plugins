@@ -26,7 +26,7 @@ hasn't eaten in a while.
 ## Installation
 
 1. Settings → Add-ons → Add-on Store → ⋮ → **Repositories** and add
-   `https://github.com/jensdescamps/home-assistant-plugins`.
+   `https://github.com/Shnilj/home-assistant-plugins`.
    (Or drop the repo into your `addons` share for a local install.)
 2. Install **CatWatch** from the store.
 3. Open the **Configuration** tab and set at least:

@@ -4,7 +4,7 @@ slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
   which cat is eating, published to Home Assistant over MQTT.
-url: https://github.com/jensdescamps/home-assistant-plugins/tree/main/catwatch
+url: https://github.com/Shnilj/home-assistant-plugins/tree/main/catwatch
 codenotary: shniljj@gmail.com
 arch:
   - aarch64

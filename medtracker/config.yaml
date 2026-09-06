@@ -5,7 +5,7 @@ description: >-
   Track which medicines each person or animal needs to take per day (fixed
   times or every N hours, whole or fractional pills), and expose Home Assistant
   entities and buttons to build reminders and notifications.
-url: https://github.com/jensdescamps/home-assistant-plugins/tree/main/medtracker
+url: https://github.com/Shnilj/home-assistant-plugins/tree/main/medtracker
 codenotary: shniljj@gmail.com
 arch:
   - aarch64
