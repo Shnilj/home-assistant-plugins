@@ -36,7 +36,9 @@ def _sig_of(config: dict):
     for s in config.get("subjects", []):
         out.append((
             s["id"], s["name"], s["kind"],
-            tuple((m["id"], m["name"], m["unit"], bool((m.get("inventory") or {}).get("track")))
+            tuple((m["id"], m["name"], m["unit"],
+                   bool((m.get("inventory") or {}).get("track")),
+                   bool(m.get("recurrence")))
                   for m in s.get("medications", [])),
         ))
     return tuple(out)
@@ -236,6 +238,10 @@ class MqttPublisher:
             cmps[f"{mid}_low"] = {
                 "p": "binary_sensor", "name": f"{name} low stock", "device_class": "problem",
                 "state_topic": f"{t}/inv_low", "unique_id": f"{uid}_low"}
+        if med.get("recurrence"):
+            cmps[f"{mid}_course"] = {
+                "p": "sensor", "name": f"{name} course", "icon": "mdi:calendar-repeat",
+                "state_topic": f"{t}/course", "unique_id": f"{uid}_course"}
         return cmps
 
     def _publish_discovery(self, config):
@@ -300,6 +306,8 @@ class MqttPublisher:
                 self._pub(f"{t}/scheduled_today", m["scheduled_today"])
                 self._pub(f"{t}/remaining", m["remaining_today"])
                 self._pub(f"{t}/dose_summary", m["dose_summary"])
+                if m.get("course"):
+                    self._pub(f"{t}/course", m["course"]["summary"])
                 inv = m["inventory"]
                 if inv:
                     self._pub(f"{t}/inv_remaining", inv["remaining"])

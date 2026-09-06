@@ -37,6 +37,23 @@ Doses are fractional: the web UI has quick-pick buttons for 1, ½, ⅓, ¼ and �
 or type any number. The **unit** (pill, ml, drop, application, …) is per
 medication.
 
+### Courses — recurring across days
+
+By default a medication is taken **every day**. A medication can instead run on a
+multi-day cadence (a "course"), set under **Repeat / course** on the Manage tab:
+
+- **Every N days / weeks** from a start date — e.g. *a B12 shot every week,
+  starting 1 September, ending after 6 times*.
+- **Specific weekdays** — e.g. Monday and Thursday.
+
+Combine either with an **end**: never, after N times, or on a date. The cadence
+decides *which days* the medication is active; the times/interval above still
+decide the doses on an active day — so "an antibiotic twice a day for 5 days" is
+*fixed times 08:00 & 20:00* + *repeat every day, ends after 5 times*.
+
+On days a course isn't active there are no doses; its **next due** points to the
+next scheduled day, and the **Course** sensor shows progress (e.g. `3 of 6`).
+
 ### Dose states
 
 For each dose, and for the medication overall, MedTracker computes a state:

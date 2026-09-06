@@ -176,11 +176,186 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.astimezone().isoformat() if dt else None
 
 
+# --- Recurrence / multi-day courses ----------------------------------------
+# A medication may run on a cadence across days (a "course"): e.g. a B12 shot
+# every week for 6 weeks, or an antibiotic twice a day for 5 days. The
+# ``recurrence`` block gates WHICH DAYS the med is active; the intra-day schedule
+# (times / interval) still decides the doses on an active day. A med with no
+# ``recurrence`` is active every day (unchanged behaviour).
+
+def parse_date(value):
+    try:
+        return datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _cadence_step_days(rec) -> int:
+    if rec.get("type") == "interval":
+        every = int(rec.get("every") or 1)
+        return max(1, every) * (7 if rec.get("unit") == "week" else 1)
+    return 1
+
+
+def is_occurrence(rec, day, start) -> bool:
+    """True if ``day`` matches the cadence (ignoring the end window)."""
+    t = rec.get("type", "daily")
+    if start and day < start:
+        return False
+    if t == "interval":
+        if not start:
+            return True
+        return (day - start).days % _cadence_step_days(rec) == 0
+    if t == "weekdays":
+        return day.weekday() in (rec.get("weekdays") or [])
+    return True  # daily
+
+
+def occurrence_index(rec, day, start):
+    """0-based index of ``day`` among cadence occurrences from ``start``, or None
+    if ``day`` is not itself an occurrence."""
+    if not is_occurrence(rec, day, start):
+        return None
+    t = rec.get("type", "daily")
+    if not start:
+        return 0
+    if t == "interval":
+        return (day - start).days // _cadence_step_days(rec)
+    if t == "weekdays":
+        wd = set(rec.get("weekdays") or [])
+        count, d, guard = 0, start, 0
+        while d <= day and guard < 10000:
+            if d.weekday() in wd:
+                count += 1
+            d += timedelta(days=1)
+            guard += 1
+        return count - 1
+    return (day - start).days  # daily
+
+
+def _end_count(rec):
+    end = rec.get("end") or {}
+    if end.get("type") == "count":
+        try:
+            return int(end.get("count"))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _end_until(rec):
+    end = rec.get("end") or {}
+    if end.get("type") == "date":
+        return parse_date(end.get("until"))
+    return None
+
+
+def is_active_on(med: dict, day: date) -> bool:
+    """Whether ``med`` has any doses scheduled on ``day`` — cadence AND the
+    course window (start date, and end after N times or on a date)."""
+    rec = med.get("recurrence")
+    if not rec:
+        return True
+    start = parse_date(rec.get("start"))
+    if start and day < start:
+        return False
+    if not is_occurrence(rec, day, start):
+        return False
+    until = _end_until(rec)
+    if until and day > until:
+        return False
+    count = _end_count(rec)
+    if count is not None:
+        idx = occurrence_index(rec, day, start)
+        if idx is None or idx >= count:
+            return False
+    return True
+
+
+def next_active_day(med: dict, from_day: date, horizon: int = 800):
+    day = from_day
+    for _ in range(horizon):
+        if is_active_on(med, day):
+            return day
+        day += timedelta(days=1)
+    return None
+
+
+def _occurrence_date(rec, start, n):
+    """Date of the n-th (0-based) cadence occurrence from ``start``."""
+    if not start:
+        return None
+    t = rec.get("type", "daily")
+    if t == "interval":
+        return start + timedelta(days=n * _cadence_step_days(rec))
+    if t == "weekdays":
+        wd = set(rec.get("weekdays") or [])
+        if not wd:
+            return None
+        count, d, guard = -1, start, 0
+        while guard < 10000:
+            if d.weekday() in wd:
+                count += 1
+                if count == n:
+                    return d
+            d += timedelta(days=1)
+            guard += 1
+        return None
+    return start + timedelta(days=n)  # daily
+
+
+def course_info(med: dict, now: datetime):
+    """A human summary of a med's multi-day course, or None for a plain med
+    (no recurrence, or daily-forever)."""
+    rec = med.get("recurrence")
+    if not rec:
+        return None
+    if rec.get("type", "daily") == "daily" and not (rec.get("end") and rec["end"].get("type") in ("count", "date")):
+        return None  # daily forever — not really a "course"
+
+    today = now.date()
+    start = parse_date(rec.get("start"))
+    ref = today if is_active_on(med, today) else next_active_day(med, today)
+    total = _end_count(rec)
+    until = _end_until(rec)
+
+    index = None
+    if ref is not None and start is not None:
+        idx = occurrence_index(rec, ref, start)
+        index = (idx + 1) if idx is not None else None
+
+    end_date = until
+    if end_date is None and total is not None and start is not None:
+        end_date = _occurrence_date(rec, start, total - 1)
+
+    active = is_active_on(med, today) or (next_active_day(med, today) is not None)
+
+    if total and index:
+        summary = f"{index} of {total}"
+    elif until:
+        summary = f"until {until.isoformat()}"
+    else:
+        summary = "ongoing"
+    if not active:
+        summary = "finished"
+
+    return {
+        "active": bool(active),
+        "index": index,
+        "total": total,
+        "summary": summary,
+        "start_iso": start.isoformat() if start else None,
+        "end_date_iso": end_date.isoformat() if end_date else None,
+    }
+
+
 def compute_med(med: dict, med_log: dict, now: datetime, settings) -> dict:
-    """Build the full runtime view for a single medication."""
+    """Build the full runtime view for a single medication, including a look
+    ahead to its next scheduled day when nothing remains due today."""
     day = now.date()
     unit = med.get("unit") or "pill"
-    insts = med_instances(med, day)
+    active_today = is_active_on(med, day)
+    insts = med_instances(med, day) if active_today else []
 
     view_instances = []
     taken = skipped = 0
@@ -226,18 +401,34 @@ def compute_med(med: dict, med_log: dict, now: datetime, settings) -> dict:
     scheduled = len(insts)
     remaining = scheduled - taken - skipped
 
-    if scheduled == 0:
-        state = "none"
-    elif overdue:
-        state = "overdue"
-    elif due_now > 0:
-        state = "due"
-    elif remaining > 0:
-        state = "upcoming"
+    # Look ahead: nothing left due today (all handled, or not active today) → the
+    # next due time is the first dose on the next active day. Works for daily
+    # meds (tomorrow) and for weekly/interval courses (next week, next dose date).
+    next_is_future = False
+    if next_dt is None:
+        search_from = day + timedelta(days=1) if active_today else day
+        nd = next_active_day(med, search_from)
+        if nd is not None:
+            future = med_instances(med, nd)
+            if future:
+                next_dt = future[0].at
+                next_dose_label = format_dose(future[0].dose, unit)
+                next_is_future = True
+
+    if scheduled > 0:
+        if remaining == 0:
+            state = "done"
+        elif overdue:
+            state = "overdue"
+        elif due_now > 0:
+            state = "due"
+        else:
+            state = "upcoming"
     else:
-        state = "done"
+        state = "upcoming" if next_dt is not None else "none"
 
     inventory = _compute_inventory(med, day, settings)
+    course = course_info(med, now)
 
     return {
         "id": med.get("id") or slugify(med.get("name", "med")),
@@ -245,9 +436,12 @@ def compute_med(med: dict, med_log: dict, now: datetime, settings) -> dict:
         "unit": unit,
         "notes": med.get("notes") or "",
         "instances": view_instances,
+        "active_today": active_today,
         "state": state,
         "next_due_iso": _iso(next_dt),
         "next_due_time": next_dt.strftime("%H:%M") if next_dt else None,
+        "next_due_date": next_dt.date().isoformat() if next_dt else None,
+        "next_is_future": next_is_future,
         "next_dose_label": next_dose_label,
         "last_taken_iso": _iso(last_taken_dt),
         "taken_today": taken,
@@ -258,7 +452,24 @@ def compute_med(med: dict, med_log: dict, now: datetime, settings) -> dict:
         "overdue": overdue,
         "dose_summary": f"{taken}/{scheduled}",
         "inventory": inventory,
+        "course": course,
     }
+
+
+def _effective_daily_dose(med: dict, day: date) -> float:
+    """Average dose per calendar day, accounting for a multi-day cadence (a
+    weekly shot consumes ~1/7 of a dose per day) — used for inventory days-left."""
+    per_active_day = daily_dose_total(med, day)
+    rec = med.get("recurrence")
+    if not rec:
+        return per_active_day
+    t = rec.get("type", "daily")
+    if t == "interval":
+        return per_active_day / _cadence_step_days(rec)
+    if t == "weekdays":
+        n = len(rec.get("weekdays") or []) or 1
+        return per_active_day * n / 7.0
+    return per_active_day  # daily
 
 
 def _compute_inventory(med: dict, day: date, settings) -> dict | None:
@@ -269,7 +480,7 @@ def _compute_inventory(med: dict, day: date, settings) -> dict | None:
         remaining = float(inv.get("count") or 0)
     except (TypeError, ValueError):
         remaining = 0.0
-    per_day = daily_dose_total(med, day)
+    per_day = _effective_daily_dose(med, day)
     days_left = round(remaining / per_day, 1) if per_day > 0 else None
     low = (
         settings.low_stock_days > 0
@@ -311,7 +522,10 @@ def compute_subject(subject: dict, subj_log: dict, now: datetime, settings) -> d
                 next_dose = m["next_dose_label"]
 
     if next_med and next_dt:
-        summary = f"{next_dose} of {next_med} at {next_dt.strftime('%H:%M')}"
+        when = next_dt.strftime("%H:%M")
+        if next_dt.date() != now.date():
+            when = next_dt.strftime("%a %d %b %H:%M")
+        summary = f"{next_dose} of {next_med} at {when}"
     elif scheduled == 0:
         summary = "No medications scheduled"
     else:

@@ -16,7 +16,7 @@ import os
 import tempfile
 
 from . import config
-from .schedule import SCHEDULE_TYPES, parse_hhmm, slugify
+from .schedule import SCHEDULE_TYPES, parse_date, parse_hhmm, slugify
 
 VALID_KINDS = ("person", "animal", "other")
 
@@ -115,6 +115,70 @@ def _normalize_inventory(raw) -> dict:
     return {"track": track, "count": round(max(0.0, count), 3)}
 
 
+WEEKDAYS = (0, 1, 2, 3, 4, 5, 6)
+RECURRENCE_TYPES = ("daily", "interval", "weekdays")
+
+
+def _norm_date(value):
+    d = parse_date(value)
+    return d.isoformat() if d else None
+
+
+def _normalize_end(raw) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    et = raw.get("type")
+    if et == "count":
+        try:
+            n = int(raw.get("count"))
+        except (TypeError, ValueError):
+            return None
+        return {"type": "count", "count": n} if n >= 1 else None
+    if et == "date":
+        until = _norm_date(raw.get("until"))
+        return {"type": "date", "until": until} if until else None
+    # "forever" is the default → store nothing, keeps plain meds clean.
+    return None
+
+
+def _normalize_recurrence(raw) -> dict | None:
+    """Return a clean recurrence dict, or None for "every day, forever" (the
+    default) so plain medications stay simple in the file."""
+    if not isinstance(raw, dict):
+        return None
+    t = raw.get("type")
+    if t not in RECURRENCE_TYPES:
+        return None
+    out = {"type": t}
+    start = _norm_date(raw.get("start"))
+    if start:
+        out["start"] = start
+    if t == "interval":
+        try:
+            every = int(raw.get("every"))
+        except (TypeError, ValueError):
+            every = 1
+        out["every"] = every if every >= 1 else 1
+        out["unit"] = "week" if raw.get("unit") == "week" else "day"
+    elif t == "weekdays":
+        wd = []
+        for v in raw.get("weekdays") or []:
+            try:
+                iv = int(v)
+            except (TypeError, ValueError):
+                continue
+            if iv in WEEKDAYS and iv not in wd:
+                wd.append(iv)
+        out["weekdays"] = sorted(wd) or [0]
+    end = _normalize_end(raw.get("end"))
+    if end:
+        out["end"] = end
+    # "daily, forever, no start" is just the default → drop it.
+    if t == "daily" and "start" not in out and "end" not in out:
+        return None
+    return out
+
+
 def _unique(base: str, used: set) -> str:
     sid = base
     n = 2
@@ -149,6 +213,7 @@ def normalize_config(raw) -> dict:
                 "unit": str(m.get("unit") or "pill").strip() or "pill",
                 "notes": str(m.get("notes") or "").strip(),
                 "schedule": _normalize_schedule(m.get("schedule")),
+                "recurrence": _normalize_recurrence(m.get("recurrence")),
                 "inventory": _normalize_inventory(m.get("inventory")),
             })
 

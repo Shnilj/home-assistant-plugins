@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- **Multi-day courses / recurring schedules.** A medication can now recur across
+  days, not just within a day: every N days or weeks, or on specific weekdays,
+  with a start date and an end after N times or on a date. Examples: "a B12 shot
+  every week, starting 1 Sep, for 6 weeks" or "an antibiotic twice a day for 5
+  days". Plain medications (no recurrence) stay daily as before.
+- Each medication now looks ahead: **next due** points to its next scheduled day
+  when nothing is left today (e.g. next week for a weekly shot, tomorrow for a
+  daily pill), and a subject's "next" summary shows the date when it isn't today.
+- New per-course **Course** sensor (e.g. "3 of 6") and an `active_today` flag; the
+  Today view shows non-today courses with their next date instead of buttons.
+- Inventory **days-left** now accounts for the cadence (a weekly shot lasts ~7×
+  longer per unit than a daily pill).
+
 ## 0.1.0
 
 Initial release.

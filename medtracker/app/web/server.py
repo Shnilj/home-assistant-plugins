@@ -169,6 +169,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
 async function loadToday(){
   let m;
   try{m=await (await fetch("api/model")).json();}catch(e){$("#today").innerHTML='<div class="empty">Cannot reach the add-on.</div>';return;}
+  window.MODEL_DATE=m.date;
   const root=$("#today");root.innerHTML="";
   const hub=el("div","hub");
   hub.append(el("div","big",escapeHtml(hub_line(m.hub))));
@@ -193,18 +194,30 @@ async function loadToday(){
 }
 function hub_line(h){return h.next_summary;}
 function countScheduled(m){return m.subjects.reduce((a,s)=>a+s.scheduled_today,0);}
+function nextText(md){
+  if(!md.next_due_time)return "";
+  let t=md.next_due_time;
+  if(md.next_due_date&&md.next_due_date!==window.MODEL_DATE){
+    const dd=new Date(md.next_due_date+"T00:00:00");
+    t=dd.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+md.next_due_time;
+  }
+  return t+(md.next_dose_label?" ("+escapeHtml(md.next_dose_label)+")":"");
+}
 function medRow(s,md){
   const d=el("div","med");
   const r1=el("div","row1");
   const left=el("div");
   left.append(el("div","mname",escapeHtml(md.name)));
-  let line=md.dose_summary+" doses";
-  if(md.next_due_time)line+=" · next "+md.next_due_time+(md.next_dose_label?" ("+escapeHtml(md.next_dose_label)+")":"");
+  const nt=nextText(md);
+  let line;
+  if(md.active_today){line=md.dose_summary+" doses"+(nt?" · next "+nt:"");}
+  else{line=nt?("Next: "+nt):"Not scheduled";}
   left.append(el("div","mline",line));
+  if(md.course){left.append(el("div","mline","📅 Course: "+escapeHtml(md.course.summary)));}
   r1.append(left);
   r1.append(el("span","chip s-"+md.state,md.state));
   d.append(r1);
-  if(md.instances&&md.instances.length){
+  if(md.active_today&&md.instances&&md.instances.length){
     const ins=el("div","insts");
     for(const i of md.instances){ins.append(el("span","inst "+i.status,i.at_time+" "+escapeHtml(i.dose_label)));}
     d.append(ins);
@@ -216,11 +229,13 @@ function medRow(s,md){
       (dl!=null?" · ~"+dl+" days left":"")+(md.inventory.low?" · LOW":""));
     d.append(inv);
   }
-  const btns=el("div","btns");
-  const take=el("button","act take","✓ Take");take.onclick=()=>doAction("take",s.id,md.id);
-  const skip=el("button","act","Skip");skip.onclick=()=>doAction("skip",s.id,md.id);
-  const undo=el("button","act","Undo");undo.onclick=()=>doAction("undo",s.id,md.id);
-  btns.append(take,skip,undo);d.append(btns);
+  if(md.active_today){
+    const btns=el("div","btns");
+    const take=el("button","act take","✓ Take");take.onclick=()=>doAction("take",s.id,md.id);
+    const skip=el("button","act","Skip");skip.onclick=()=>doAction("skip",s.id,md.id);
+    const undo=el("button","act","Undo");undo.onclick=()=>doAction("undo",s.id,md.id);
+    btns.append(take,skip,undo);d.append(btns);
+  }
   return d;
 }
 async function doAction(action,sid,mid){
@@ -280,6 +295,7 @@ function medCard(s,md,mi){
   c.append(field("Notes (optional)",inputBind(md,"notes")));
   if(md.schedule.type==="interval"){c.append(intervalEditor(md.schedule));}
   else{c.append(timesEditor(md.schedule));}
+  c.append(recurrenceEditor(md));
   // inventory
   const chk=el("input");chk.type="checkbox";chk.checked=!!md.inventory.track;
   chk.onchange=()=>{md.inventory.track=chk.checked;renderManage();};
@@ -292,6 +308,48 @@ function medCard(s,md,mi){
   const del=el("button","del","Remove medication");del.onclick=()=>{s.medications.splice(mi,1);renderManage();};
   c.append(del);
   return c;
+}
+function todayISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function recurrenceEditor(md){
+  if(!md.recurrence)md.recurrence={type:"daily",end:{type:"forever"}};
+  const rec=md.recurrence; rec.end=rec.end||{type:"forever"};
+  const box=el("div");
+  const mode=(rec.type==="interval")?(rec.unit==="week"?"weeks":"days"):(rec.type==="weekdays"?"weekdays":"daily");
+  const modeSel=el("select");
+  [["daily","Every day"],["days","Every N days"],["weeks","Every N weeks"],["weekdays","Specific weekdays"]].forEach(([v,l])=>{
+    const o=el("option",null,l);o.value=v;if(v===mode)o.selected=true;modeSel.append(o);});
+  modeSel.onchange=()=>{
+    const v=modeSel.value;
+    if(v==="daily"){rec.type="daily";delete rec.every;delete rec.unit;delete rec.weekdays;}
+    else if(v==="days"){rec.type="interval";rec.unit="day";rec.every=rec.every||1;delete rec.weekdays;if(!rec.start)rec.start=todayISO();}
+    else if(v==="weeks"){rec.type="interval";rec.unit="week";rec.every=rec.every||1;delete rec.weekdays;if(!rec.start)rec.start=todayISO();}
+    else{rec.type="weekdays";rec.weekdays=(rec.weekdays&&rec.weekdays.length)?rec.weekdays:[0];delete rec.every;delete rec.unit;if(!rec.start)rec.start=todayISO();}
+    renderManage();
+  };
+  box.append(field("Repeats",modeSel));
+  if(rec.type==="interval"){
+    box.append(field("Every (number of "+(rec.unit==="week"?"weeks":"days")+")",numberBind(rec,"every",1)));
+  }
+  if(rec.type==="weekdays"){
+    const days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const wrap=el("div","frac");rec.weekdays=rec.weekdays||[];
+    days.forEach((lbl,idx)=>{
+      const b=el("button",null,lbl);b.type="button";
+      if(rec.weekdays.includes(idx)){b.style.background="var(--accent)";b.style.color="#fff";}
+      b.onclick=()=>{const i=rec.weekdays.indexOf(idx);if(i>=0)rec.weekdays.splice(i,1);else rec.weekdays.push(idx);rec.weekdays.sort((a,c)=>a-c);renderManage();};
+      wrap.append(b);
+    });
+    box.append(field("On days (Mon–Sun)",wrap));
+  }
+  const st=el("input");st.type="date";st.value=rec.start||"";st.onchange=()=>rec.start=st.value;
+  box.append(field("Start date"+(rec.type==="daily"?" (optional)":""),st));
+  const endSel=el("select");
+  [["forever","No end"],["count","After N times"],["date","On date"]].forEach(([v,l])=>{const o=el("option",null,l);o.value=v;if((rec.end.type||"forever")===v)o.selected=true;endSel.append(o);});
+  endSel.onchange=()=>{rec.end={type:endSel.value};if(endSel.value==="count")rec.end.count=6;if(endSel.value==="date")rec.end.until=todayISO();renderManage();};
+  box.append(field("Ends",endSel));
+  if(rec.end.type==="count"){box.append(field("Number of times",numberBind(rec.end,"count",6)));}
+  if(rec.end.type==="date"){const u=el("input");u.type="date";u.value=rec.end.until||"";u.onchange=()=>rec.end.until=u.value;box.append(field("Until",u));}
+  return field("Repeat / course",box);
 }
 function timesEditor(sch){
   sch.times=sch.times&&sch.times.length?sch.times:[{time:"08:00",dose:1}];

@@ -1,5 +1,5 @@
 name: MedTracker
-version: "0.1.0"
+version: "0.2.0"
 slug: medtracker
 description: >-
   Track which medicines each person or animal needs to take per day (fixed
