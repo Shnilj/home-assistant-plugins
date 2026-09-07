@@ -19,6 +19,7 @@ import cv2
 
 from . import classifier, config, zones
 from .capture import RtspCamera
+from .history import EventLog
 from .motion import MotionDetector
 from .mqtt_client import MqttPublisher
 from .state import ModelHolder, SharedState
@@ -93,6 +94,10 @@ class CatWatch:
         self._zones_reloaded = 0.0
         self._last_ui_frame = 0.0
         self._today = datetime.now().date()
+        # event history (rolling archive of counted events)
+        self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR)
+        self.history.prune(self.s.history_hours * 3600)
+        self._last_prune = time.time()
 
     # -- helpers ------------------------------------------------------------
     def _reload_zones(self):
@@ -184,11 +189,16 @@ class CatWatch:
             self.mqtt.publish_snapshot(jpg)
             if new_event:
                 fname = f"{slug}_{action}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
+                saved = False
                 try:
                     with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
                         fh.write(jpg)
+                    saved = True
                 except OSError as exc:
                     log.warning("Could not write snapshot: %s", exc)
+                self.history.add(cat, action, zone["name"],
+                                 fname if saved else None, ts.isoformat())
+                self.history.prune(self.s.history_hours * 3600)
 
     def _update_interaction(self, zone, action, cat, frame, bbox, conf, now):
         I = self._interaction
@@ -255,6 +265,10 @@ class CatWatch:
                 self.state.set_frame(jpg)
             self._last_ui_frame = now
 
+        if now - self._last_prune > 600:
+            self.history.prune(self.s.history_hours * 3600)
+            self._last_prune = now
+
         self._reload_zones()
         region = zones.detect_region(self._zones, frame.shape)
         motion, area, bbox = self.motion.process(frame, region)
@@ -304,7 +318,7 @@ def main():
 
     from .web.server import serve  # local import
     threading.Thread(
-        target=serve, args=(app.state, settings, app.model_holder, app.camera),
+        target=serve, args=(app.state, settings, app.model_holder, app.history, app.camera),
         name="web", daemon=True,
     ).start()
 

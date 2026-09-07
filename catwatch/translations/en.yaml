@@ -53,6 +53,11 @@ configuration:
       Only count eating/drinking when the cat is bent over the bowl (body rising
       above the zone), not merely sitting inside a large zone. Turn off if your
       camera looks straight down.
+  history_hours:
+    name: History retention (hours)
+    description: >-
+      How long to keep event snapshots in the History timeline. Older events and
+      their images are deleted automatically.
   cats:
     name: Cat names
     description: >-

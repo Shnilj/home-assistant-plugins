@@ -60,6 +60,13 @@ INDEX_HTML = """<!doctype html>
   .bar button { background: #fff; color: #3f51b5; }
   .bar button.warn { background: #ffd9d9; color: #a10000; }
   .toolrow { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chips button { background: transparent; color: inherit; border: 1px solid #8888; padding: 5px 12px; }
+  .chips button.on { background: #3f51b5; color: #fff; border-color: #3f51b5; }
+  .evgrid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ev { width: 132px; }
+  .ev img, .ev .noimg { width: 132px; height: 99px; object-fit: cover; border-radius: 8px; display: block; background: #8882; }
+  .ev .cap2 { font-size: 12px; margin-top: 4px; line-height: 1.35; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td { padding: 6px 4px; border-bottom: 1px solid #8882; vertical-align: top; }
   .muted { opacity: .6; font-size: 13px; }
@@ -76,6 +83,13 @@ INDEX_HTML = """<!doctype html>
   <div class="card">
     <h2>Cats</h2>
     <table id="catTable"></table>
+  </div>
+
+  <div class="card full">
+    <h2>History — last 24h</h2>
+    <div id="histTotals" style="margin:-4px 0 12px; font-size:14px"></div>
+    <div id="histChips" class="chips"></div>
+    <div id="history" class="evgrid"></div>
   </div>
 
   <div class="card full">
@@ -240,6 +254,15 @@ async function loadStatus() {
          + `<td class="muted">ate ${fmtTime(c.last_eaten)}<br>drank ${fmtTime(c.last_drank)}</td></tr>`;
   }
   document.getElementById('catTable').innerHTML = rows;
+
+  const totals = document.getElementById('histTotals');
+  if (totals) {
+    const parts = Object.entries(j.cats)
+      .map(([n, c]) => `<b>${n}</b> ${c.meals_today} 🍽️ &nbsp; ${c.drinks_today} 💧`);
+    totals.innerHTML = parts.length
+      ? 'Today &nbsp; ' + parts.join(' &nbsp;·&nbsp; ')
+      : '';
+  }
 }
 
 const SELECTED = new Set();
@@ -286,6 +309,35 @@ async function loadCaptures() {
   updateBar();
 }
 
+let EVENTS = [];
+let histFilter = 'all';
+function actionIcon(a) { return a === 'eating' ? '🍽️' : (a === 'drinking' ? '💧' : '•'); }
+function fmtWhen(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'});
+}
+function buildHistChips() {
+  const cats = [...new Set(EVENTS.map(e => e.cat))];
+  const mk = (v, label) => `<button class="${histFilter===v?'on':''}" onclick="setHistFilter('${v}')">${label}</button>`;
+  document.getElementById('histChips').innerHTML = mk('all', 'All') + cats.map(c => mk(c, c)).join('');
+}
+function setHistFilter(v) { histFilter = v; buildHistChips(); renderHistory(); }
+function renderHistory() {
+  const box = document.getElementById('history');
+  const evs = EVENTS.filter(e => histFilter === 'all' || e.cat === histFilter);
+  if (!evs.length) { box.innerHTML = '<span class="muted">No events yet in the last 24h.</span>'; return; }
+  box.innerHTML = evs.map(e =>
+    `<div class="ev">
+       ${e.snapshot ? `<img src="api/snap/${e.snapshot}" loading="lazy">` : '<div class="noimg"></div>'}
+       <div class="cap2">${actionIcon(e.action)} <b>${e.cat}</b><br>
+         <span class="muted">${fmtWhen(e.ts)} · ${e.zone}</span></div>
+     </div>`).join('');
+}
+async function loadHistory() {
+  EVENTS = await (await fetch('api/events')).json();
+  buildHistChips(); renderHistory();
+}
+
 frame.addEventListener('load', fit);
 window.addEventListener('resize', fit);
 function refreshFrame() { frame.src = 'api/frame.jpg?t=' + Date.now(); }
@@ -293,10 +345,12 @@ function refreshSnap() { document.getElementById('snap').src = 'api/snapshot.jpg
 
 loadCats().then(loadCaptures);
 loadZones();
+loadHistory();
 loadStatus(); refreshFrame(); refreshSnap();
 setInterval(loadStatus, 2000);
 setInterval(refreshFrame, 1500);
 setInterval(refreshSnap, 3000);
+setInterval(loadHistory, 15000);
 setInterval(() => { if (SELECTED.size === 0) loadCaptures(); }, 8000);
 </script>
 </body>
@@ -310,7 +364,7 @@ def _list_captures(limit=60):
     return [os.path.basename(f) for f in files[:limit]]
 
 
-def create_app(state: SharedState, settings: config.Settings, model_holder: ModelHolder):
+def create_app(state: SharedState, settings: config.Settings, model_holder: ModelHolder, history):
     app = Flask(__name__)
 
     @app.get("/")
@@ -334,6 +388,14 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     def api_snapshot():
         jpg = state.get_snapshot()
         return Response(jpg, mimetype="image/jpeg") if jpg else ("", 204)
+
+    @app.get("/api/events")
+    def api_events():
+        return jsonify(history.list())
+
+    @app.get("/api/snap/<path:name>")
+    def api_snap(name):
+        return send_from_directory(config.SNAP_DIR, secure_filename(name))
 
     @app.get("/api/zones")
     def api_zones_get():
@@ -391,7 +453,7 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     return app
 
 
-def serve(state, settings, model_holder, camera=None):
-    app = create_app(state, settings, model_holder)
+def serve(state, settings, model_holder, history, camera=None):
+    app = create_app(state, settings, model_holder, history)
     log.info("Web UI listening on :8099 (ingress)")
     waitress_serve(app, host="0.0.0.0", port=8099, threads=6)

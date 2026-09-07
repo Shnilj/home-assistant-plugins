@@ -26,7 +26,7 @@ hasn't eaten in a while.
 ## Installation
 
 1. Settings → Add-ons → Add-on Store → ⋮ → **Repositories** and add
-   `https://github.com/Shnilj/home-assistant-plugins`.
+   `https://github.com/jensdescamps/home-assistant-plugins`.
    (Or drop the repo into your `addons` share for a local install.)
 2. Install **CatWatch** from the store.
 3. Open the **Configuration** tab and set at least:
@@ -53,6 +53,7 @@ hasn't eaten in a while.
 | `presence_grace_seconds` | `3` | Motion-free seconds tolerated before a visit is considered over (bridges a still cat blending into the background). |
 | `zone_coverage` | `0.3` | Fraction of a bowl zone the cat must cover (0–1) to count as using it. |
 | `require_lean_in` | `true` | Only count when the cat is bent over the bowl, not just sitting in the zone. Turn off for a top-down camera. |
+| `history_hours` | `24` | How long the History timeline keeps event snapshots; older ones are deleted. |
 | `cats` | `[Ellie]` | Your cats' names. |
 | `classifier_confidence` | `0.55` | Below this, a cat is reported as `unknown`. |
 | `save_captures` | `true` | Save crops so you can label them and improve recognition. |
@@ -208,7 +209,8 @@ keep working unchanged — only the feature vector gets smarter.
 
 ## Where data lives
 
-- Snapshots: `/addon_configs/<slug>_catwatch/snapshots/`
+- Event snapshots (the History timeline): `/addon_configs/<slug>_catwatch/snapshots/`
+- Event log: `.../events.json` (cat, action, zone, time, snapshot per event)
 - Training dataset (labelled crops): `.../dataset/<Cat name>/`
 - Unlabelled captures: `.../dataset/_unlabeled/`
 - Trained model: the add-on's private `/data/model.npz`

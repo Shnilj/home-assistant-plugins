@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1
+
+- Add a per-cat "today" totals strip at the top of the History panel
+  (e.g. "Ellie 3 🍽️ 5 💧"), so the day's counts sit alongside the timeline.
+
+## 0.3.0
+
+- **History timeline.** The web UI now shows a rolling archive of the last 24h of
+  eating/drinking events — a thumbnail per event with the cat, action, zone and
+  time, filterable per cat. So you can see at a glance when each cat ate and
+  which one it was, not just the latest snapshot.
+- Events and their snapshots older than the retention window are pruned
+  automatically. New `history_hours` option (default 24, up to 168).
+
 ## 0.2.1
 
 - Remove the deprecated `build.yaml` (Supervisor warned about it). Base-image

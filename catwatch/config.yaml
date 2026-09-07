@@ -1,10 +1,10 @@
 name: CatWatch
-version: "0.2.1"
+version: "0.3.1"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
   which cat is eating, published to Home Assistant over MQTT.
-url: https://github.com/Shnilj/home-assistant-plugins/tree/main/catwatch
+url: https://github.com/jensdescamps/home-assistant-plugins/tree/main/catwatch
 codenotary: shniljj@gmail.com
 arch:
   - aarch64
@@ -38,6 +38,7 @@ options:
   presence_grace_seconds: 3
   zone_coverage: 0.3
   require_lean_in: true
+  history_hours: 24
   cats:
     - Ellie
   classifier_confidence: 0.55
@@ -56,6 +57,7 @@ schema:
   presence_grace_seconds: int(0,60)
   zone_coverage: float(0,1)
   require_lean_in: bool
+  history_hours: int(1,168)
   cats:
     - str
   classifier_confidence: float(0,1)

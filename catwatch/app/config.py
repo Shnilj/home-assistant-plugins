@@ -18,6 +18,7 @@ CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
 
 OPTIONS_PATH = os.path.join(DATA_DIR, "options.json")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
+EVENTS_PATH = os.path.join(CONFIG_DIR, "events.json")
 MODEL_PATH = os.path.join(DATA_DIR, "model.npz")
 
 SNAP_DIR = os.path.join(CONFIG_DIR, "snapshots")
@@ -41,6 +42,7 @@ _DEFAULTS = {
     "presence_grace_seconds": 3,
     "zone_coverage": 0.3,
     "require_lean_in": True,
+    "history_hours": 24,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -76,6 +78,7 @@ class Settings:
     presence_grace_seconds: int = 3
     zone_coverage: float = 0.3
     require_lean_in: bool = True
+    history_hours: int = 24
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -130,6 +133,7 @@ def load_settings() -> Settings:
         presence_grace_seconds=_int("presence_grace_seconds"),
         zone_coverage=float(opts.get("zone_coverage", 0.3)),
         require_lean_in=bool(opts.get("require_lean_in", True)),
+        history_hours=_int("history_hours"),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),
