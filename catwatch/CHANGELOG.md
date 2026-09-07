@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Click any history thumbnail (or the latest capture) to enlarge it full-screen;
+  click anywhere or press Esc to close.
+- Remove individual history events — hover a thumbnail and click ✕ to delete the
+  event and its snapshot file.
+
 ## 0.3.1
 
 - Add a per-cat "today" totals strip at the top of the History panel

@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import threading
+import uuid
 from datetime import datetime
 
 log = logging.getLogger("catwatch.history")
@@ -35,9 +36,20 @@ class EventLog:
         try:
             with open(self.path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
-            return data if isinstance(data, list) else []
         except (FileNotFoundError, ValueError):
             return []
+        if not isinstance(data, list):
+            return []
+        # Backfill ids for events written before ids existed.
+        changed = False
+        for e in data:
+            if isinstance(e, dict) and not e.get("id"):
+                e["id"] = uuid.uuid4().hex[:8]
+                changed = True
+        if changed:
+            self._events = data
+            self._save()
+        return data
 
     def _save(self) -> None:
         try:
@@ -59,7 +71,8 @@ class EventLog:
             pass
 
     def add(self, cat, action, zone, snapshot, ts_iso) -> None:
-        event = {"ts": ts_iso, "cat": cat, "action": action, "zone": zone, "snapshot": snapshot}
+        event = {"id": uuid.uuid4().hex[:8], "ts": ts_iso, "cat": cat,
+                 "action": action, "zone": zone, "snapshot": snapshot}
         with self._lock:
             self._events.append(event)
             if len(self._events) > self.max_events:
@@ -84,6 +97,17 @@ class EventLog:
                 self._events = keep
                 self._save()
         return removed
+
+    def remove(self, event_id: str) -> bool:
+        """Delete one event (and its snapshot) by id."""
+        with self._lock:
+            for i, e in enumerate(self._events):
+                if e.get("id") == event_id:
+                    self._delete_snapshot(e)
+                    del self._events[i]
+                    self._save()
+                    return True
+        return False
 
     def list(self, limit: int = 300) -> list:
         """Newest first."""

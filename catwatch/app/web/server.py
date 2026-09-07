@@ -65,8 +65,19 @@ INDEX_HTML = """<!doctype html>
   .chips button.on { background: #3f51b5; color: #fff; border-color: #3f51b5; }
   .evgrid { display: flex; flex-wrap: wrap; gap: 10px; }
   .ev { width: 132px; }
+  .evimg { position: relative; }
   .ev img, .ev .noimg { width: 132px; height: 99px; object-fit: cover; border-radius: 8px; display: block; background: #8882; }
+  .ev img { cursor: zoom-in; }
+  .ev .del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0;
+    border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 12px;
+    line-height: 22px; text-align: center; cursor: pointer; display: none; }
+  .ev:hover .del, .evimg:focus-within .del { display: block; }
   .ev .cap2 { font-size: 12px; margin-top: 4px; line-height: 1.35; }
+  img.snap { cursor: zoom-in; }
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex;
+    align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 20px; }
+  #lightbox[hidden] { display: none; }
+  #lightbox img { max-width: 96vw; max-height: 96vh; border-radius: 8px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td { padding: 6px 4px; border-bottom: 1px solid #8882; vertical-align: top; }
   .muted { opacity: .6; font-size: 13px; }
@@ -113,7 +124,7 @@ INDEX_HTML = """<!doctype html>
 
   <div class="card">
     <h2>Latest capture</h2>
-    <img id="snap" class="snap" alt="latest snapshot">
+    <img id="snap" class="snap" alt="latest snapshot" onclick="openLightbox(this.src)">
   </div>
 
   <div class="card">
@@ -139,6 +150,8 @@ INDEX_HTML = """<!doctype html>
     <div id="captures"></div>
   </div>
 </main>
+
+<div id="lightbox" hidden onclick="this.hidden = true"><img id="lightboxImg" src="" alt="enlarged"></div>
 
 <script>
 let CATS = [];
@@ -328,10 +341,25 @@ function renderHistory() {
   if (!evs.length) { box.innerHTML = '<span class="muted">No events yet in the last 24h.</span>'; return; }
   box.innerHTML = evs.map(e =>
     `<div class="ev">
-       ${e.snapshot ? `<img src="api/snap/${e.snapshot}" loading="lazy">` : '<div class="noimg"></div>'}
+       <div class="evimg">
+         ${e.snapshot
+            ? `<img src="api/snap/${e.snapshot}" loading="lazy" onclick="openLightbox('api/snap/${e.snapshot}')">`
+            : '<div class="noimg"></div>'}
+         <button class="del" title="Remove" onclick="deleteEvent('${e.id}')">✕</button>
+       </div>
        <div class="cap2">${actionIcon(e.action)} <b>${e.cat}</b><br>
          <span class="muted">${fmtWhen(e.ts)} · ${e.zone}</span></div>
      </div>`).join('');
+}
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').hidden = false;
+}
+async function deleteEvent(id) {
+  await fetch('api/events/delete', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id})});
+  EVENTS = EVENTS.filter(e => e.id !== id);
+  buildHistChips(); renderHistory();
 }
 async function loadHistory() {
   EVENTS = await (await fetch('api/events')).json();
@@ -340,6 +368,7 @@ async function loadHistory() {
 
 frame.addEventListener('load', fit);
 window.addEventListener('resize', fit);
+window.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('lightbox').hidden = true; });
 function refreshFrame() { frame.src = 'api/frame.jpg?t=' + Date.now(); }
 function refreshSnap() { document.getElementById('snap').src = 'api/snapshot.jpg?t=' + Date.now(); }
 
@@ -392,6 +421,11 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     @app.get("/api/events")
     def api_events():
         return jsonify(history.list())
+
+    @app.post("/api/events/delete")
+    def api_events_delete():
+        event_id = (request.get_json(silent=True) or {}).get("id", "")
+        return jsonify({"ok": bool(history.remove(event_id))})
 
     @app.get("/api/snap/<path:name>")
     def api_snap(name):
