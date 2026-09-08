@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+- **Evaluate accuracy** button. Runs a leave-one-out test over your labelled
+  crops (each crop classified using all the others) and reports per-recognizer
+  accuracy, so you can see whether `embedding` really beats `signature` on your
+  own cats. Includes a confusion matrix and thumbnails of the misclassified crops
+  so you can spot and fix bad labels.
+
 ## 0.4.0
 
 - **Much better cat recognition.** New neural **embedding** recognizer: a bundled

@@ -78,6 +78,12 @@ INDEX_HTML = """<!doctype html>
     align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 20px; }
   #lightbox[hidden] { display: none; }
   #lightbox img { max-width: 96vw; max-height: 96vh; border-radius: 8px; }
+  .recg { margin: 14px 0; }
+  .recg h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .confusion { width: auto; margin: 8px 0; border-collapse: collapse; }
+  .confusion th, .confusion td { padding: 4px 10px; text-align: center; font-size: 13px; border: 1px solid #8883; }
+  .confusion th { opacity: .75; }
+  .confusion td.diag { font-weight: 700; color: #0a8a3a; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td { padding: 6px 4px; border-bottom: 1px solid #8882; vertical-align: top; }
   .muted { opacity: .6; font-size: 13px; }
@@ -131,7 +137,14 @@ INDEX_HTML = """<!doctype html>
     <h2>Recognition model</h2>
     <p class="muted">Label captures below to teach CatWatch your cats, then retrain. More labelled examples per cat = better recognition.</p>
     <button onclick="train()">Train now</button>
+    <button class="ghost" onclick="evaluate()">Evaluate accuracy</button>
     <span id="trainMsg" class="muted"></span>
+  </div>
+
+  <div class="card full" id="evalCard" hidden>
+    <h2>Recognition accuracy</h2>
+    <p class="muted">Leave-one-out test on your labelled crops: each crop is classified using all the <i>others</i>, so this reflects real accuracy, not memorisation. Higher is better.</p>
+    <div id="evalResults"></div>
   </div>
 
   <div class="card full">
@@ -243,6 +256,55 @@ async function train() {
   document.getElementById('trainMsg').textContent = j.trained
     ? `Trained on ${j.samples} images ✓` : 'No labelled images yet.';
   loadCaptures();
+}
+
+const pct = x => x == null ? '–' : (x*100).toFixed(0) + '%';
+async function evaluate() {
+  const msg = document.getElementById('trainMsg');
+  msg.textContent = 'Evaluating… this can take a moment.';
+  try {
+    const j = await (await fetch('api/evaluate', {method:'POST'})).json();
+    renderEval(j);
+  } finally { msg.textContent = ''; }
+}
+function confusionTable(conf, cats) {
+  const cols = cats.filter(c => cats.some(t => (conf[t] || {})[c] !== undefined));
+  let t = '<table class="confusion"><tr><th>actual \\\\ guessed</th>' +
+    cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  for (const c of cats) {
+    const row = conf[c] || {};
+    t += `<tr><th>${c}</th>` + cols.map(p => {
+      const v = row[p] || 0;
+      return `<td class="${p === c ? 'diag' : ''}">${v || ''}</td>`;
+    }).join('') + '</tr>';
+  }
+  return t + '</table>';
+}
+function renderEval(j) {
+  const card = document.getElementById('evalCard');
+  const box = document.getElementById('evalResults');
+  card.hidden = false;
+  if (j.note) { box.innerHTML = `<span class="muted">${j.note}</span>`; return; }
+  const cats = Object.keys(j.per_cat_counts);
+  let html = `<div class="muted">${j.total} labelled crops · ` +
+    cats.map(c => `${c} ${j.per_cat_counts[c]}`).join(' · ') + `</div>`;
+  for (const name of ['embedding', 'signature'].filter(r => j.recognizers[r])) {
+    const r = j.recognizers[name];
+    html += `<div class="recg"><h3>${name} — <b>${pct(r.accuracy)}</b> correct <span class="muted">(${r.n} crops)</span></h3>`;
+    html += `<div class="muted">At the ${Math.round(j.margin*100)}% margin: ${r.attributed} attributed at ${pct(r.attributed_accuracy)}, ${r.abstained} left unknown.</div>`;
+    html += confusionTable(r.confusion, cats);
+    if (r.mistakes.length) {
+      html += `<div class="muted" style="margin-top:8px">Misclassified (${r.mistakes.length}, worst first):</div><div class="evgrid">`;
+      html += r.mistakes.map(m =>
+        `<div class="ev"><div class="evimg">
+           <img src="api/dataset/${encodeURIComponent(m.true)}/${encodeURIComponent(m.file)}" loading="lazy" onclick="openLightbox(this.src)">
+         </div><div class="cap2">${m.true} → <b>${m.pred || '—'}</b><br>
+           <span class="muted">${Math.round(m.share*100)}% sure</span></div></div>`).join('');
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  box.innerHTML = html;
 }
 
 function fmtTime(ts) { return ts ? new Date(ts).toLocaleTimeString() : 'never'; }
@@ -483,6 +545,16 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
         if summary["trained"]:
             model_holder.set(classifier.SignatureModel.load())
         return jsonify(summary)
+
+    @app.post("/api/evaluate")
+    def api_evaluate():
+        return jsonify(classifier.evaluate(margin=settings.recognition_margin))
+
+    @app.get("/api/dataset/<label>/<path:name>")
+    def api_dataset_img(label, name):
+        if label not in settings.cats:
+            return ("", 404)
+        return send_from_directory(settings.dataset_dir_for(label), secure_filename(name))
 
     return app
 

@@ -24,6 +24,102 @@ import numpy as np
 
 from . import config
 
+
+def _knn_loo(feats, labels, k=5):
+    """Leave-one-out weighted-kNN. Returns (preds, winning_shares)."""
+    F = np.vstack(feats).astype(np.float32)
+    sims = F @ F.T
+    np.fill_diagonal(sims, -1.0)  # never let an image match itself
+    preds, shares = [], []
+    for i in range(len(labels)):
+        idx = np.argsort(-sims[i])[:k]
+        votes = {}
+        for j in idx:
+            votes[labels[j]] = votes.get(labels[j], 0.0) + max(float(sims[i, j]), 0.0)
+        if votes:
+            w = max(votes, key=votes.get)
+            preds.append(w)
+            shares.append(votes[w] / (sum(votes.values()) + 1e-6))
+        else:
+            preds.append(None)
+            shares.append(0.0)
+    return preds, shares
+
+
+def _gather_labelled(dataset_dir):
+    """Return list of (label, path, bgr_image) for every labelled crop."""
+    items = []
+    for label in sorted(os.listdir(dataset_dir)):
+        if label in config.RESERVED_LABELS:
+            continue
+        folder = os.path.join(dataset_dir, label)
+        if not os.path.isdir(folder):
+            continue
+        for path in glob.glob(os.path.join(folder, "*.jpg")):
+            img = cv2.imread(path)
+            if img is not None:
+                items.append((label, path, img))
+    return items
+
+
+def evaluate(dataset_dir: str = config.DATASET_DIR, k: int = 5, margin: float = 0.6):
+    """Leave-one-out accuracy for each available recognizer, so you can see
+    whether the neural recognizer really does better on YOUR cats."""
+    items = _gather_labelled(dataset_dir)
+    counts = {}
+    for label, _, _ in items:
+        counts[label] = counts.get(label, 0) + 1
+
+    backends = {"signature": _signature}
+    if os.path.exists(config.EMBED_MODEL_PATH):
+        backends["embedding"] = _embed
+
+    out = {"total": len(items), "per_cat_counts": counts, "margin": margin, "recognizers": {}}
+    if len(items) < 2 or len(counts) < 2:
+        out["note"] = "Need at least 2 cats with a few labelled crops each to evaluate."
+        return out
+
+    for name, fn in backends.items():
+        feats, kept = [], []
+        for label, path, img in items:
+            try:
+                f = fn(img)
+            except Exception:  # noqa: BLE001
+                f = None
+            if f is not None:
+                feats.append(f)
+                kept.append((label, path))
+        if len(kept) < 2:
+            continue
+        labels = [l for l, _ in kept]
+        preds, shares = _knn_loo(feats, labels, k)
+
+        correct = attributed = attributed_correct = 0
+        confusion, mistakes = {}, []
+        for (true, path), pred, share in zip(kept, preds, shares):
+            confusion.setdefault(true, {})
+            confusion[true][pred] = confusion[true].get(pred, 0) + 1
+            if pred == true:
+                correct += 1
+            else:
+                mistakes.append({"true": true, "pred": pred,
+                                 "file": os.path.basename(path), "share": round(share, 2)})
+            if share >= margin:
+                attributed += 1
+                if pred == true:
+                    attributed_correct += 1
+        n = len(kept)
+        out["recognizers"][name] = {
+            "n": n,
+            "accuracy": round(correct / n, 3),
+            "attributed": attributed,
+            "abstained": n - attributed,
+            "attributed_accuracy": round(attributed_correct / attributed, 3) if attributed else None,
+            "confusion": confusion,
+            "mistakes": sorted(mistakes, key=lambda m: m["share"], reverse=True)[:60],
+        }
+    return out
+
 log = logging.getLogger("catwatch.classifier")
 
 # --- feature backend state -------------------------------------------------

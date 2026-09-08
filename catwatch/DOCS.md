@@ -219,6 +219,12 @@ visit. Second, a visit is only attributed when the winning cat clears
 `recognition_margin`; below that it's left unattributed — better a missing count
 than a wrong one.
 
+Click **Evaluate accuracy** any time to see how well it's doing: it runs a
+leave-one-out test over your labelled crops (each classified using all the
+others), reports accuracy for each recognizer, and shows the crops it gets wrong
+— a fast way to catch mislabelled or ambiguous images and to confirm the neural
+recognizer beats the lighter one on *your* cats.
+
 If recognition is shaky: label **more** crops per cat (aim 50+), balanced across
 cats and including night/IR and varied poses, then **Train**. Raise
 `recognition_margin` to trade a few misses for fewer wrong attributions. The
