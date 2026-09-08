@@ -58,6 +58,17 @@ configuration:
     description: >-
       How long to keep event snapshots in the History timeline. Older events and
       their images are deleted automatically.
+  recognizer:
+    name: Recognizer
+    description: >-
+      "embedding" uses a local neural network (more accurate, robust to lighting;
+      recommended). "signature" uses a lighter colour/pattern method. Switching
+      recognizers requires retraining (click Train in the web UI).
+  recognition_margin:
+    name: Recognition margin
+    description: >-
+      How dominant the winning cat must be across a visit (0-1) before the event
+      is attributed. Higher = fewer wrong guesses but more visits left unattributed.
   cats:
     name: Cat names
     description: >-

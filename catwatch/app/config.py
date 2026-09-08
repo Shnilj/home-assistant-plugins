@@ -21,6 +21,13 @@ SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
 EVENTS_PATH = os.path.join(CONFIG_DIR, "events.json")
 MODEL_PATH = os.path.join(DATA_DIR, "model.npz")
 
+# Bundled recognition model. Resolves to catwatch/models/... from source and
+# /app/models/... inside the container (both are <package parent>/models).
+_PKG_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EMBED_MODEL_PATH = os.environ.get(
+    "EMBED_MODEL_PATH", os.path.join(_PKG_ROOT, "models", "mobilenetv2-12.onnx")
+)
+
 SNAP_DIR = os.path.join(CONFIG_DIR, "snapshots")
 DATASET_DIR = os.path.join(CONFIG_DIR, "dataset")
 UNLABELED_DIR = os.path.join(DATASET_DIR, "_unlabeled")
@@ -43,6 +50,8 @@ _DEFAULTS = {
     "zone_coverage": 0.3,
     "require_lean_in": True,
     "history_hours": 24,
+    "recognizer": "embedding",
+    "recognition_margin": 0.6,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -79,6 +88,8 @@ class Settings:
     zone_coverage: float = 0.3
     require_lean_in: bool = True
     history_hours: int = 24
+    recognizer: str = "embedding"
+    recognition_margin: float = 0.6
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -134,6 +145,8 @@ def load_settings() -> Settings:
         zone_coverage=float(opts.get("zone_coverage", 0.3)),
         require_lean_in=bool(opts.get("require_lean_in", True)),
         history_hours=_int("history_hours"),
+        recognizer=str(opts.get("recognizer", "embedding")).lower(),
+        recognition_margin=float(opts.get("recognition_margin", 0.6)),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),

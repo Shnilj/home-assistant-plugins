@@ -7,7 +7,7 @@ FROM ghcr.io/home-assistant/${BUILD_ARCH}-base-debian:bookworm
 
 LABEL org.opencontainers.image.title="CatWatch" \
       org.opencontainers.image.description="Local motion-triggered cat recognition for Home Assistant" \
-      org.opencontainers.image.source="https://github.com/Shnilj/home-assistant-plugins"
+      org.opencontainers.image.source="https://github.com/jensdescamps/home-assistant-plugins"
 
 ENV LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
@@ -28,6 +28,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 # Application code.
 COPY app /app/app
+COPY models /app/models
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 

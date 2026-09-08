@@ -54,6 +54,8 @@ hasn't eaten in a while.
 | `zone_coverage` | `0.3` | Fraction of a bowl zone the cat must cover (0–1) to count as using it. |
 | `require_lean_in` | `true` | Only count when the cat is bent over the bowl, not just sitting in the zone. Turn off for a top-down camera. |
 | `history_hours` | `24` | How long the History timeline keeps event snapshots; older ones are deleted. |
+| `recognizer` | `embedding` | `embedding` = local neural network (accurate, lighting-robust; recommended). `signature` = lighter colour/pattern method. Switching requires a retrain. |
+| `recognition_margin` | `0.6` | How dominant the winning cat must be across a visit (0–1) before it's attributed; higher = fewer wrong guesses, more visits left unattributed. |
 | `cats` | `[Ellie]` | Your cats' names. |
 | `classifier_confidence` | `0.55` | Below this, a cat is reported as `unknown`. |
 | `save_captures` | `true` | Save crops so you can label them and improve recognition. |
@@ -162,8 +164,13 @@ action:
     data:
       message: "Ellie is eating 🍽️"
       data:
-        entity_id: image.catwatch_snapshot
+        # Android companion app: attach the live snapshot image.
+        image: "{{ state_attr('image.catwatch_snapshot', 'entity_picture') }}"
 ```
+
+> The snapshot is an **image entity**, so attach it via its `entity_picture`
+> attribute (not a `.state` URL). On iOS use `attachment: { url: "…" }` instead
+> of `image:`.
 
 **3 · Daily meal summary at 22:00.**
 
@@ -193,17 +200,31 @@ entity IDs with the slugs generated from your cat names.
   gets dark. Most cat visits happen at dawn/dusk.
 - **Label mistakes matter** — a few wrong labels hurt more than a few missing
   ones. When in doubt, delete rather than mislabel.
-- If two cats are at the bowls at once, the current model reports the dominant
-  one. Delete those crops rather than labelling them.
+- If two cats are at the bowls at once, the model reports the dominant one.
+  Delete those crops rather than labelling them.
+- **Include night/IR shots** when labelling. If your camera switches to infrared
+  in the dark, colour disappears — the model needs examples from that mode too.
 
-### Recognising cats that look very similar
+### How recognition works
 
-The default recogniser uses colour and coarse pattern, which is ideal for
-visually distinct cats. If you ever need to separate look-alikes, the single
-place to upgrade is `extract_feature()` in `app/classifier.py`: swap in a
-neural embedding (e.g. a MobileNet feature extractor via `onnxruntime`) that
-returns an L2-normalised vector. Training, storage, the web UI and MQTT all
-keep working unchanged — only the feature vector gets smarter.
+By default CatWatch uses the **embedding** recognizer: a MobileNetV2 neural
+network (bundled, run locally through OpenCV — no cloud, no extra dependency)
+turns each crop into a rich feature vector, and your labelled crops are matched
+against it. It's far more discriminative than colour alone and largely robust to
+lighting, which is what makes it good at telling similar cats apart.
+
+Two things keep it accurate. First, recognition **votes across the whole visit**
+rather than trusting one frame, so a single misread can't decide (or restart) a
+visit. Second, a visit is only attributed when the winning cat clears
+`recognition_margin`; below that it's left unattributed — better a missing count
+than a wrong one.
+
+If recognition is shaky: label **more** crops per cat (aim 50+), balanced across
+cats and including night/IR and varied poses, then **Train**. Raise
+`recognition_margin` to trade a few misses for fewer wrong attributions. The
+lighter `signature` recognizer remains available for very distinct cats or
+minimal hardware. Whenever you change `recognizer`, click **Train** once to
+rebuild the model (your labelled crops are reused).
 
 ---
 

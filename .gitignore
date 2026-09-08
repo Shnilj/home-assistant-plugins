@@ -8,6 +8,9 @@ __pycache__/
 *.npz
 *.pkl
 *.onnx
+# ...but the bundled recognition model IS tracked:
+!catwatch/models/
+!catwatch/models/*.onnx
 snapshots/
 dataset/
 

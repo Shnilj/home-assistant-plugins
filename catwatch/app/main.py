@@ -58,6 +58,15 @@ def _crop(frame, bbox, pad=0.15):
     return frame[y0:y1, x0:x1]
 
 
+def _vote_winner(votes):
+    """Return (label, winning_share 0-1) from accumulated vote weights."""
+    if not votes:
+        return None, 0.0
+    total = sum(votes.values()) + 1e-6
+    winner = max(votes, key=votes.get)
+    return winner, votes[winner] / total
+
+
 def _annotate(frame, bbox, caption):
     img = frame.copy()
     if bbox is not None:
@@ -76,6 +85,7 @@ class CatWatch:
         self.state = SharedState(settings.cats)
         self.camera = RtspCamera(settings.rtsp_url)
         self.motion = MotionDetector(settings.motion_sensitivity, settings.motion_min_area)
+        classifier.init_recognizer(settings)
         self.model_holder = ModelHolder(classifier.SignatureModel.load())
         self.mqtt = MqttPublisher(
             settings,
@@ -200,28 +210,38 @@ class CatWatch:
                                  fname if saved else None, ts.isoformat())
                 self.history.prune(self.s.history_hours * 3600)
 
-    def _update_interaction(self, zone, action, cat, frame, bbox, conf, now):
+    def _update_interaction(self, zone, action, display, conf, frame, bbox, now):
+        """One interaction per (zone, action). Recognition votes accumulate over
+        the whole visit — a per-frame misread doesn't restart the visit or decide
+        the cat; the majority winner does, and only if it clears the margin."""
         I = self._interaction
-        if (I is None or I["zone_id"] != zone["id"] or I["cat"] != cat
-                or I["action"] != action):
+        if I is None or I["zone_id"] != zone["id"] or I["action"] != action:
             self._end_interaction()
-            self._interaction = {
+            I = self._interaction = {
                 "zone_id": zone["id"], "zone_name": zone["name"], "action": action,
-                "cat": cat, "since": now, "last_seen": now, "counted": False,
+                "since": now, "last_seen": now, "counted": False,
+                "counted_cat": None, "votes": {},
             }
-            I = self._interaction
         else:
             I["last_seen"] = now
-        if not I["counted"] and (now - I["since"]) >= self.s.dwell_for(action):
-            self._register_action(action, cat, frame, bbox, conf, now, zone)
+
+        if display != "unknown":
+            I["votes"][display] = I["votes"].get(display, 0.0) + max(conf, 0.0)
+
+        winner, share = _vote_winner(I["votes"])
+        if (not I["counted"] and winner is not None
+                and share >= self.s.recognition_margin
+                and (now - I["since"]) >= self.s.dwell_for(action)):
+            self._register_action(action, winner, frame, bbox, share, now, zone)
             I["counted"] = True
+            I["counted_cat"] = winner
 
     def _end_interaction(self):
         I = self._interaction
-        if I and I["counted"]:
+        if I and I.get("counted") and I.get("counted_cat"):
             state_key = _ACTION_KEYS[I["action"]][0]
-            self.state.update_cat(I["cat"], **{state_key: False})
-            self.mqtt.publish_action_state(config.slugify(I["cat"]), I["action"], False)
+            self.state.update_cat(I["counted_cat"], **{state_key: False})
+            self.mqtt.publish_action_state(config.slugify(I["counted_cat"]), I["action"], False)
         self._interaction = None
 
     def _expire_interaction(self, now):
@@ -294,9 +314,9 @@ class CatWatch:
             self._capture_saved = True
 
         best, _cov = zones.pick_zone(bbox, self._zones, self.s)
-        if best is not None and display != "unknown":
+        if best is not None:
             action = "eating" if best["type"] == "food" else "drinking"
-            self._update_interaction(best, action, display, frame, bbox, conf, now)
+            self._update_interaction(best, action, display, conf, frame, bbox, now)
             counted = self._interaction and self._interaction["counted"]
             self._publish_current(best["name"], action if counted else f"approaching {action}")
         else:

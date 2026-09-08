@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+- **Much better cat recognition.** New neural **embedding** recognizer: a bundled
+  MobileNetV2 (run locally through OpenCV's DNN — no new dependency, no cloud)
+  turns each crop into a rich feature vector that's far more discriminative than
+  colour alone and largely robust to lighting/IR. Default on; `recognizer:
+  signature` keeps the old lightweight method.
+- **Visit-level voting.** Recognition now votes across the whole visit instead of
+  trusting a single frame, so an occasional misread no longer flips the result or
+  restarts the visit. The winning cat is committed only if it clears
+  `recognition_margin` (default 0.6), otherwise the visit is left unattributed —
+  fewer wrong "who ate" calls.
+- After updating, click **Train** once to rebuild the model with the new
+  recognizer (your existing labelled crops are reused). More labelled examples,
+  including night/IR shots, help the most.
+
 ## 0.3.2
 
 - Click any history thumbnail (or the latest capture) to enlarge it full-screen;
