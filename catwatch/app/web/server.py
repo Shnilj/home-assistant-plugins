@@ -60,6 +60,10 @@ INDEX_HTML = """<!doctype html>
   .bar button { background: #fff; color: #3f51b5; }
   .bar button.warn { background: #ffd9d9; color: #a10000; }
   .toolrow { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  nav.tabs { max-width: 1100px; margin: 0 auto; padding: 10px 16px 0; display: flex; gap: 8px; }
+  nav.tabs button { background: transparent; color: inherit; border: 1px solid #8888;
+    border-bottom: 0; padding: 9px 18px; border-radius: 10px 10px 0 0; font-size: 14px; cursor: pointer; }
+  nav.tabs button.on { background: #3f51b5; color: #fff; border-color: #3f51b5; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .chips button { background: transparent; color: inherit; border: 1px solid #8888; padding: 5px 12px; }
   .chips button.on { background: #3f51b5; color: #fff; border-color: #3f51b5; }
@@ -91,25 +95,30 @@ INDEX_HTML = """<!doctype html>
 </head>
 <body>
 <header>🐱 CatWatch <small>local cat recognition</small></header>
+<nav class="tabs">
+  <button data-t="monitor" class="on" onclick="showTab('monitor')">Monitor</button>
+  <button data-t="zones" onclick="showTab('zones')">Zones</button>
+  <button data-t="training" onclick="showTab('training')">Training</button>
+</nav>
 <main>
-  <div class="card">
+  <div class="card" data-tab="monitor">
     <h2>Status</h2>
     <div id="status"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-tab="monitor">
     <h2>Cats</h2>
     <table id="catTable"></table>
   </div>
 
-  <div class="card full">
+  <div class="card full" data-tab="monitor">
     <h2>History — last 24h</h2>
     <div id="histTotals" style="margin:-4px 0 12px; font-size:14px"></div>
     <div id="histChips" class="chips"></div>
     <div id="history" class="evgrid"></div>
   </div>
 
-  <div class="card full">
+  <div class="card full" data-tab="zones">
     <h2>Zones — food &amp; water bowls</h2>
     <p class="muted">Pick a type, then drag a box tightly around each bowl or fountain (draw it a touch larger so a nudged bowl stays inside). A cat leaning into a <b style="color:var(--food)">food</b> zone counts as eating; a <b style="color:var(--water)">water</b> zone as drinking. Add as many as are out.</p>
     <div class="toolrow">
@@ -128,26 +137,26 @@ INDEX_HTML = """<!doctype html>
     <div id="zoneList"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-tab="monitor">
     <h2>Latest capture</h2>
     <img id="snap" class="snap" alt="latest snapshot" onclick="openLightbox(this.src)">
   </div>
 
-  <div class="card">
+  <div class="card" data-tab="training">
     <h2>Recognition model</h2>
     <p class="muted">Label captures below to teach CatWatch your cats, then retrain. More labelled examples per cat = better recognition.</p>
     <button onclick="train()">Train now</button>
-    <button class="ghost" onclick="evaluate()">Evaluate accuracy</button>
+    <button class="ghost" onclick="runEval()">Evaluate accuracy</button>
     <span id="trainMsg" class="muted"></span>
   </div>
 
-  <div class="card full" id="evalCard" hidden>
+  <div class="card full" id="evalCard" data-tab="training">
     <h2>Recognition accuracy</h2>
     <p class="muted">Leave-one-out test on your labelled crops: each crop is classified using all the <i>others</i>, so this reflects real accuracy, not memorisation. Higher is better.</p>
     <div id="evalResults"></div>
   </div>
 
-  <div class="card full">
+  <div class="card full" data-tab="training">
     <h2>Captures to label</h2>
     <div id="bar" class="bar" hidden>
       <b><span id="selCount">0</span> selected →</b>
@@ -258,8 +267,14 @@ async function train() {
   loadCaptures();
 }
 
+function showTab(name) {
+  document.querySelectorAll('.card').forEach(c => { c.hidden = (c.dataset.tab !== name); });
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === name));
+  if (name === 'zones') fit();  // canvas needs a real size once its card is visible
+}
+
 const pct = x => x == null ? '–' : (x*100).toFixed(0) + '%';
-async function evaluate() {
+async function runEval() {
   const msg = document.getElementById('trainMsg');
   msg.textContent = 'Evaluating… this can take a moment.';
   try {
@@ -434,6 +449,7 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape') document.getEl
 function refreshFrame() { frame.src = 'api/frame.jpg?t=' + Date.now(); }
 function refreshSnap() { document.getElementById('snap').src = 'api/snapshot.jpg?t=' + Date.now(); }
 
+showTab('monitor');
 loadCats().then(loadCaptures);
 loadZones();
 loadHistory();

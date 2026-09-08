@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- Fix the "Evaluate accuracy" button doing nothing (its name collided with a
+  built-in browser function).
+- Organise the web UI into **Monitor / Zones / Training** tabs so it's not one
+  long scroll.
+
 ## 0.4.1
 
 - **Evaluate accuracy** button. Runs a leave-one-out test over your labelled
