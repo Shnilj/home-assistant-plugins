@@ -70,9 +70,9 @@ class EventLog:
         except OSError:
             pass
 
-    def add(self, cat, action, zone, snapshot, ts_iso) -> None:
+    def add(self, cat, action, zone, snapshot, ts_iso) -> str:
         event = {"id": uuid.uuid4().hex[:8], "ts": ts_iso, "cat": cat,
-                 "action": action, "zone": zone, "snapshot": snapshot}
+                 "action": action, "zone": zone, "snapshot": snapshot, "duration": None}
         with self._lock:
             self._events.append(event)
             if len(self._events) > self.max_events:
@@ -81,6 +81,17 @@ class EventLog:
                 for e in overflow:
                     self._delete_snapshot(e)
             self._save()
+        return event["id"]
+
+    def set_duration(self, event_id: str, seconds: float) -> bool:
+        """Record how long the visit that produced this event lasted."""
+        with self._lock:
+            for e in self._events:
+                if e.get("id") == event_id:
+                    e["duration"] = int(round(seconds))
+                    self._save()
+                    return True
+        return False
 
     def prune(self, max_age_seconds: float) -> int:
         cutoff = datetime.now().timestamp() - max_age_seconds

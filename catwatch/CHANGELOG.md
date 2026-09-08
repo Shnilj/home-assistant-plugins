@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+- New per-cat Home Assistant sensors: **last meal duration** and **last drink
+  duration** (in seconds), set when each visit ends — so you can automate on
+  unusually short/long visits. Also shown in the Monitor cat table.
+
+## 0.5.0
+
+- **Time spent at the bowl.** Each visit now records how long the cat stayed, so
+  the History timeline reads e.g. "Ellie · 08:12 · 1m 35s". The Monitor "Now"
+  line also shows a live "for m:ss" while a cat is currently eating/drinking.
+
 ## 0.4.3
 
 - Add a live camera feed to the top of the Monitor tab (the interactive zone

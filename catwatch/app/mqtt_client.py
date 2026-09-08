@@ -29,10 +29,10 @@ STATUS_TOPIC = f"{BASE}/status"
 DISCOVERY_TOPIC = f"{DISCOVERY_PREFIX}/device/{DEVICE_ID}/config"
 SNAPSHOT_TOPIC = f"{BASE}/snapshot"
 
-# Per-action metadata: (state key suffix, timestamp suffix, count suffix)
+# Per-action metadata: (state suffix, timestamp suffix, count suffix, duration suffix)
 _ACTION = {
-    "eating": ("eating", "last_eaten", "meals"),
-    "drinking": ("drinking", "last_drank", "drinks"),
+    "eating": ("eating", "last_eaten", "meals", "meal_duration"),
+    "drinking": ("drinking", "last_drank", "drinks", "drink_duration"),
 }
 
 
@@ -152,6 +152,20 @@ class MqttPublisher:
                 "state_class": "total", "state_topic": f"{BASE}/{slug}/drinks",
                 "unique_id": f"catwatch_{slug}_drinks",
             }
+            cmps[f"{slug}_meal_duration"] = {
+                "p": "sensor", "name": f"{name} last meal duration",
+                "device_class": "duration", "unit_of_measurement": "s",
+                "state_class": "measurement", "icon": "mdi:timer-outline",
+                "state_topic": f"{BASE}/{slug}/meal_duration",
+                "unique_id": f"catwatch_{slug}_meal_duration",
+            }
+            cmps[f"{slug}_drink_duration"] = {
+                "p": "sensor", "name": f"{name} last drink duration",
+                "device_class": "duration", "unit_of_measurement": "s",
+                "state_class": "measurement", "icon": "mdi:timer-outline",
+                "state_topic": f"{BASE}/{slug}/drink_duration",
+                "unique_id": f"catwatch_{slug}_drink_duration",
+            }
 
         return {
             "dev": {
@@ -200,6 +214,10 @@ class MqttPublisher:
     def publish_action_count(self, slug: str, action: str, count: int):
         key = _ACTION[action][2]
         self.pub(f"{BASE}/{slug}/{key}", str(count))
+
+    def publish_action_duration(self, slug: str, action: str, seconds: int):
+        key = _ACTION[action][3]
+        self.pub(f"{BASE}/{slug}/{key}", str(seconds))
 
     def publish_snapshot(self, jpg_bytes: bytes):
         if jpg_bytes:

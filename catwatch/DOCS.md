@@ -100,6 +100,11 @@ cooldown (`meal_cooldown_minutes` / `drink_cooldown_minutes`) since that cat's
 last one, so grazing counts once. Brief motion gaps (a still cat blends into the
 background) are bridged by `presence_grace_seconds`.
 
+Each visit also records its **duration** — from the cat arriving to the last
+time it was seen at the zone — shown in the History timeline (e.g. "1m 35s") and
+live on the Monitor while it's happening. (In Home Assistant, the on-time of the
+`… eating` binary sensor gives the same duration for automations.)
+
 Because the coverage is measured relative to each zone, a bowl that drifts a bit
 inside its zone after cleaning still works — just keep the zone a touch larger
 than the bowl. If a top-down camera makes the lean-in test fail, set
@@ -122,6 +127,8 @@ And, for each cat, e.g. *Ellie*:
 - **Ellie eating** / **Ellie drinking** (`binary_sensor`) — on while she is.
 - **Ellie last eaten** / **Ellie last drank** (`sensor`, timestamp).
 - **Ellie meals today** / **Ellie drinks today** (`sensor`, reset at midnight).
+- **Ellie last meal duration** / **Ellie last drink duration** (`sensor`, seconds) —
+  how long her most recent visit lasted.
 
 ---
 

@@ -16,6 +16,7 @@ class SharedState:
             "current_confidence": 0.0,
             "current_zone": "none",
             "current_action": "none",
+            "current_elapsed": 0,
             "model_ready": False,
             "mqtt_connected": False,
         }
@@ -27,6 +28,8 @@ class SharedState:
                 "last_drank": None,
                 "meals_today": 0,
                 "drinks_today": 0,
+                "last_meal_duration": None,
+                "last_drink_duration": None,
             }
             for name in cat_names
         }

@@ -336,6 +336,7 @@ async function loadStatus() {
   let nowLine = `Now: <b>${s.current_cat}</b>`;
   if (s.current_cat !== 'none') nowLine += ` (${(s.current_confidence*100).toFixed(0)}%)`;
   if (s.current_action && s.current_action !== 'none') nowLine += ` — ${s.current_action} @ ${s.current_zone}`;
+  if (s.current_elapsed) nowLine += ` for ${fmtDur(s.current_elapsed)}`;
   document.getElementById('status').innerHTML =
     pill(s.camera_connected,'Camera','No camera') +
     pill(s.mqtt_connected,'MQTT','No MQTT') +
@@ -346,7 +347,8 @@ async function loadStatus() {
     const doing = c.eating ? '🍽️ eating' : (c.drinking ? '💧 drinking' : '—');
     rows += `<tr><td><b>${name}</b></td><td>${doing}</td>`
          + `<td>${c.meals_today} 🍽️<br>${c.drinks_today} 💧</td>`
-         + `<td class="muted">ate ${fmtTime(c.last_eaten)}<br>drank ${fmtTime(c.last_drank)}</td></tr>`;
+         + `<td class="muted">ate ${fmtTime(c.last_eaten)}${c.last_meal_duration!=null?' ('+fmtDur(c.last_meal_duration)+')':''}`
+         + `<br>drank ${fmtTime(c.last_drank)}${c.last_drink_duration!=null?' ('+fmtDur(c.last_drink_duration)+')':''}</td></tr>`;
   }
   document.getElementById('catTable').innerHTML = rows;
 
@@ -411,6 +413,11 @@ function fmtWhen(ts) {
   const d = new Date(ts);
   return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'});
 }
+function fmtDur(s) {
+  if (!s || s < 1) return '';
+  const m = Math.floor(s / 60), sec = Math.round(s % 60);
+  return m ? `${m}m ${sec}s` : `${sec}s`;
+}
 function buildHistChips() {
   const cats = [...new Set(EVENTS.map(e => e.cat))];
   const mk = (v, label) => `<button class="${histFilter===v?'on':''}" onclick="setHistFilter('${v}')">${label}</button>`;
@@ -430,7 +437,7 @@ function renderHistory() {
          <button class="del" title="Remove" onclick="deleteEvent('${e.id}')">✕</button>
        </div>
        <div class="cap2">${actionIcon(e.action)} <b>${e.cat}</b><br>
-         <span class="muted">${fmtWhen(e.ts)} · ${e.zone}</span></div>
+         <span class="muted">${fmtWhen(e.ts)} · ${e.zone}${e.duration != null ? ' · ' + fmtDur(e.duration) : ''}</span></div>
      </div>`).join('');
 }
 function openLightbox(src) {

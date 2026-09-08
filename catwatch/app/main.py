@@ -146,7 +146,7 @@ class CatWatch:
                 self.mqtt.publish_current_action("none")
             self.state.update_status(
                 activity=False, current_cat="none", current_confidence=0.0,
-                current_zone="none", current_action="none",
+                current_zone="none", current_action="none", current_elapsed=0,
             )
             self._absent_since = None
             self._activity_since = None
@@ -194,21 +194,24 @@ class CatWatch:
         verb = "eating" if action == "eating" else "drinking"
         annotated = _annotate(frame, bbox, f"{cat} {verb} - {zone['name']}")
         jpg = _encode_jpg(annotated, self.s.jpeg_quality)
+        fname = None
         if jpg:
             self.state.set_snapshot(jpg)
             self.mqtt.publish_snapshot(jpg)
             if new_event:
                 fname = f"{slug}_{action}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
-                saved = False
                 try:
                     with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
                         fh.write(jpg)
-                    saved = True
                 except OSError as exc:
                     log.warning("Could not write snapshot: %s", exc)
-                self.history.add(cat, action, zone["name"],
-                                 fname if saved else None, ts.isoformat())
-                self.history.prune(self.s.history_hours * 3600)
+                    fname = None
+
+        if new_event:
+            eid = self.history.add(cat, action, zone["name"], fname, ts.isoformat())
+            self.history.prune(self.s.history_hours * 3600)
+            return eid
+        return None
 
     def _update_interaction(self, zone, action, display, conf, frame, bbox, now):
         """One interaction per (zone, action). Recognition votes accumulate over
@@ -220,7 +223,7 @@ class CatWatch:
             I = self._interaction = {
                 "zone_id": zone["id"], "zone_name": zone["name"], "action": action,
                 "since": now, "last_seen": now, "counted": False,
-                "counted_cat": None, "votes": {},
+                "counted_cat": None, "event_id": None, "votes": {},
             }
         else:
             I["last_seen"] = now
@@ -232,16 +235,26 @@ class CatWatch:
         if (not I["counted"] and winner is not None
                 and share >= self.s.recognition_margin
                 and (now - I["since"]) >= self.s.dwell_for(action)):
-            self._register_action(action, winner, frame, bbox, share, now, zone)
+            I["event_id"] = self._register_action(action, winner, frame, bbox, share, now, zone)
             I["counted"] = True
             I["counted_cat"] = winner
 
     def _end_interaction(self):
         I = self._interaction
         if I and I.get("counted") and I.get("counted_cat"):
-            state_key = _ACTION_KEYS[I["action"]][0]
-            self.state.update_cat(I["counted_cat"], **{state_key: False})
-            self.mqtt.publish_action_state(config.slugify(I["counted_cat"]), I["action"], False)
+            cat, action = I["counted_cat"], I["action"]
+            slug = config.slugify(cat)
+            state_key = _ACTION_KEYS[action][0]
+            self.state.update_cat(cat, **{state_key: False})
+            self.mqtt.publish_action_state(slug, action, False)
+
+            # visit duration = arrival to last time the cat was seen at the zone
+            duration = int(round(max(0.0, I["last_seen"] - I["since"])))
+            dur_key = "last_meal_duration" if action == "eating" else "last_drink_duration"
+            self.state.update_cat(cat, **{dur_key: duration})
+            self.mqtt.publish_action_duration(slug, action, duration)
+            if I.get("event_id"):
+                self.history.set_duration(I["event_id"], duration)
         self._interaction = None
 
     def _expire_interaction(self, now):
@@ -317,9 +330,15 @@ class CatWatch:
         if best is not None:
             action = "eating" if best["type"] == "food" else "drinking"
             self._update_interaction(best, action, display, conf, frame, bbox, now)
-            counted = self._interaction and self._interaction["counted"]
-            self._publish_current(best["name"], action if counted else f"approaching {action}")
+            I = self._interaction
+            if I and I["counted"]:
+                self.state.update_status(current_elapsed=int(now - I["since"]))
+                self._publish_current(best["name"], action)
+            else:
+                self.state.update_status(current_elapsed=0)
+                self._publish_current(best["name"], f"approaching {action}")
         else:
+            self.state.update_status(current_elapsed=0)
             self._publish_current("none", "none")
 
         self._expire_interaction(now)
