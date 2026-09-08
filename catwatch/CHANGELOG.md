@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3
+
+- Add a live camera feed to the top of the Monitor tab (the interactive zone
+  editor stays on the Zones tab). Click it to enlarge.
+
 ## 0.4.2
 
 - Fix the "Evaluate accuracy" button doing nothing (its name collided with a

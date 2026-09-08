@@ -101,6 +101,11 @@ INDEX_HTML = """<!doctype html>
   <button data-t="training" onclick="showTab('training')">Training</button>
 </nav>
 <main>
+  <div class="card full" data-tab="monitor">
+    <h2>Live feed</h2>
+    <img id="liveFrame" class="snap" alt="live camera" onclick="openLightbox(this.src)">
+  </div>
+
   <div class="card" data-tab="monitor">
     <h2>Status</h2>
     <div id="status"></div>
@@ -446,7 +451,12 @@ async function loadHistory() {
 frame.addEventListener('load', fit);
 window.addEventListener('resize', fit);
 window.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('lightbox').hidden = true; });
-function refreshFrame() { frame.src = 'api/frame.jpg?t=' + Date.now(); }
+function refreshFrame() {
+  const t = 'api/frame.jpg?t=' + Date.now();
+  frame.src = t;  // zone editor
+  const lf = document.getElementById('liveFrame');
+  if (lf) lf.src = t;  // Monitor live feed
+}
 function refreshSnap() { document.getElementById('snap').src = 'api/snapshot.jpg?t=' + Date.now(); }
 
 showTab('monitor');
