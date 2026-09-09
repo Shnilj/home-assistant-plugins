@@ -33,3 +33,19 @@ def test_dwell_and_cooldown():
     assert s.dwell_for("eating") == s.eating_dwell_seconds
     assert s.cooldown_for("eating") == s.meal_cooldown_minutes
     assert s.cooldown_for("drinking") == s.drink_cooldown_minutes
+
+
+def test_none_class_is_trainable_not_reserved():
+    # The background "not a cat" class must be trained as a real class (so the
+    # recogniser can answer __none__), unlike the skipped _unlabeled folder.
+    assert config.NONE_LABEL not in config.RESERVED_LABELS
+    assert config.NONE_DIR.endswith(config.NONE_LABEL)
+
+
+def test_ensure_dirs_creates_none_folder():
+    import os
+    s = config.load_settings()
+    config.ensure_dirs(s)
+    assert os.path.isdir(config.NONE_DIR)
+    # and its dataset path resolves through the same helper the UI uses
+    assert s.dataset_dir_for(config.NONE_LABEL) == config.NONE_DIR

@@ -166,7 +166,7 @@ INDEX_HTML = """<!doctype html>
 
   <div class="card" data-tab="training">
     <h2>Recognition model</h2>
-    <p class="muted">Label captures below to teach CatWatch your cats, then retrain. More labelled examples per cat = better recognition.</p>
+    <p class="muted">Label captures below to teach CatWatch your cats, then retrain. More labelled examples per cat = better recognition. Frames with <b>no cat</b> (empty views, night-time IR flicker, reflections) can be labelled <b>🚫 Not a cat</b> — teach a few and CatWatch stops inventing meals on cat-less frames.</p>
     <button onclick="train()">Train now</button>
     <button class="ghost" onclick="runEval()">Evaluate accuracy</button>
     <span id="trainMsg" class="muted"></span>
@@ -183,6 +183,7 @@ INDEX_HTML = """<!doctype html>
     <div id="bar" class="bar" hidden>
       <b><span id="selCount">0</span> selected →</b>
       <span id="catBtns"></span>
+      <button onclick="assign('__none__')" title="Empty frames, IR flicker, reflections — teaches CatWatch to say 'not a cat'">🚫 Not a cat</button>
       <button class="warn" onclick="assign('_delete')">🗑 Delete</button>
       <button onclick="clearSel()">Clear</button>
     </div>
@@ -458,6 +459,7 @@ function renderHistory() {
        <select class="fix" onchange="relabelEvent('${e.id}', this.value)">
          <option value="">✎ correct…</option>
          ${CATS.map(c => `<option value="${c}">${c}</option>`).join('')}
+         <option value="__none__">🚫 not a cat</option>
        </select>
      </div>`).join('');
 }
@@ -465,9 +467,17 @@ async function relabelEvent(id, cat) {
   if (!cat) return;
   const j = await (await fetch('api/events/relabel', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({id, cat})})).json();
+  const h = document.getElementById('histHint');
+  if (j.removed) {
+    EVENTS = EVENTS.filter(x => x.id !== id);
+    buildHistChips(); renderHistory();
+    if (h) h.textContent = j.trained
+      ? '✓ Removed — this frame is now a "not a cat" training example. Open Training → Train to teach it.'
+      : '✓ Removed (no training crop was available for this older event).';
+    return;
+  }
   const e = EVENTS.find(x => x.id === id); if (e) e.cat = cat;
   renderHistory();
-  const h = document.getElementById('histHint');
   if (h) h.textContent = j.trained
     ? '✓ Correction saved and added to training — open Training → Train to apply it.'
     : '✓ Label updated (no training crop was available for this older event).';
@@ -606,11 +616,14 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     def api_events_relabel():
         body = request.get_json(silent=True) or {}
         event_id, cat = body.get("id", ""), body.get("cat", "")
-        if cat not in settings.cats:
+        is_none = cat == config.NONE_LABEL
+        if not is_none and cat not in settings.cats:
             return jsonify({"ok": False, "error": "unknown cat"}), 400
         ev = history.get(event_id)
         if not ev:
             return jsonify({"ok": False, "error": "not found"}), 404
+        # File this event's clean crop as a labelled training example for the
+        # chosen target — a cat, or the "not a cat" background class (__none__).
         fields, trained = {"cat": cat}, False
         crop = ev.get("crop")
         if crop:
@@ -631,9 +644,16 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
                     trained = True
                 except OSError:
                     pass
-        # Move the meal/drink between cats in the durable stats (unknown didn't count).
         old, action = ev.get("cat"), ev.get("action")
         day, dur = _event_day(ev), (ev.get("duration") or 0)
+        if is_none:
+            # It wasn't a cat at all — undo any count it added and drop the event
+            # entirely; its crop now trains the background class.
+            if day and action in ("eating", "drinking") and old and old != "unknown":
+                stats.adjust(day, old, action, d_count=-1, d_seconds=-dur)
+            history.remove(event_id)
+            return jsonify({"ok": True, "trained": trained, "removed": True})
+        # Move the meal/drink between cats in the durable stats (unknown didn't count).
         if day and action in ("eating", "drinking") and old != cat:
             if old and old != "unknown":
                 stats.adjust(day, old, action, d_count=-1, d_seconds=-dur)
@@ -670,7 +690,7 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
         cat = body.get("cat", "")
         if not isinstance(files, list) or not files:
             return jsonify({"ok": False, "error": "no files"}), 400
-        if cat != "_delete" and cat not in settings.cats:
+        if cat not in settings.cats and cat not in ("_delete", config.NONE_LABEL):
             return jsonify({"ok": False, "error": "unknown cat"}), 400
         moved = 0
         if cat != "_delete":
@@ -704,7 +724,7 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
 
     @app.get("/api/dataset/<label>/<path:name>")
     def api_dataset_img(label, name):
-        if label not in settings.cats:
+        if label not in settings.cats and label != config.NONE_LABEL:
             return ("", 404)
         return send_from_directory(settings.dataset_dir_for(label), secure_filename(name))
 

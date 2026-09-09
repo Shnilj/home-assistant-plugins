@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.10.3
+## 0.11.0
+
+- **Teach CatWatch "not a cat".** The recogniser can now learn a background class
+  from frames that have motion but no cat — empty night views, IR auto-gain
+  flicker, reflections, a light switching. Previously it had no choice but to name
+  its nearest cat, which is how a phantom "Ellie eating" appeared on a cat-less
+  frame. Label such frames **🚫 Not a cat** (a new button in *Captures to label*,
+  and a **🚫 not a cat** option in the history "correct…" menu), click **Train**,
+  and CatWatch rejects those frames outright instead of inventing a meal. Marking
+  a history event "not a cat" also removes it and undoes its count. Examples are
+  stored in the dataset's `__none__` folder.
 
 - **Stop phantom events from whole-scene motion.** Frames where the changed area
   fills most of the view (a running water fountain, lights switching, a camera

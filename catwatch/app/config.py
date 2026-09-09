@@ -36,6 +36,10 @@ UNLABELED_DIR = os.path.join(DATASET_DIR, "_unlabeled")
 
 # Reserved dataset folder names that are not real cat labels.
 RESERVED_LABELS = {"_unlabeled"}
+# A trained-but-not-a-cat class: crops labelled here (empty frames, IR flicker,
+# reflections) let the recogniser answer "nobody" instead of guessing a cat.
+NONE_LABEL = "__none__"
+NONE_DIR = os.path.join(DATASET_DIR, NONE_LABEL)
 
 ZONE_TYPES = ("food", "water")
 
@@ -232,7 +236,7 @@ def save_zones(zones) -> None:
 
 
 def ensure_dirs(settings: Settings) -> None:
-    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, EVENT_CROP_DIR, DATASET_DIR, UNLABELED_DIR):
+    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, EVENT_CROP_DIR, DATASET_DIR, UNLABELED_DIR, NONE_DIR):
         os.makedirs(d, exist_ok=True)
     for slug, name in settings.cat_slugs.items():
         os.makedirs(os.path.join(DATASET_DIR, name), exist_ok=True)

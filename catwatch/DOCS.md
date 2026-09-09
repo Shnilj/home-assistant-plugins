@@ -236,6 +236,16 @@ Visits the recogniser can't confidently attribute are logged as **❓ unknown**
 events (unless `log_unknown_visits` is off) — filter the timeline by "unknown" and
 label them; they're the most valuable training examples.
 
+**Teach it "not a cat".** Sometimes there's motion but no cat — an empty view at
+night, IR auto-gain flicker, a reflection or a light change. Without an example
+of "nothing", the recogniser has no choice but to name its nearest cat, which is
+how a phantom meal appears on a cat-less frame. Give it that choice: on any such
+capture in **Captures to label**, select it and click **🚫 Not a cat**; on a bad
+history event, pick **🚫 not a cat** in the "correct…" menu (that also removes the
+event and undoes its count). A handful of these plus a **Train** and CatWatch
+starts rejecting cat-less frames outright instead of inventing a meal. These live
+in the `__none__` folder of your dataset.
+
 **Fix mistakes from the timeline.** When an event names the wrong cat (or shows
 unknown), use the "✎ correct…" picker on that history tile and choose the right one. This fixes the
 record and files that event's crop as a labelled example for the correct cat — so
@@ -262,6 +272,7 @@ rebuild the model (your labelled crops are reused).
 - Event snapshots (the History timeline): `/addon_configs/<slug>_catwatch/snapshots/`
 - Event log: `.../events.json` (cat, action, zone, time, snapshot per event)
 - Training dataset (labelled crops): `.../dataset/<Cat name>/`
+- "Not a cat" examples (background class): `.../dataset/__none__/`
 - Unlabelled captures: `.../dataset/_unlabeled/`
 - Trained model: the add-on's private `/data/model.npz`
 
@@ -278,6 +289,10 @@ is uploaded anywhere — capture, recognition and storage are all local.
   the MQTT integration is set up. The add-on log prints the broker it found.
 - **Everything is `unknown`** — you haven't labelled and trained yet, or
   `classifier_confidence` is too high. Label ~20+ crops per cat and retrain.
+- **Phantom events at night on cat-less frames** — a cat gets named on a frame
+  with no cat (often IR flicker or a whole-scene light change). Label a few such
+  frames **🚫 Not a cat** and **Train**; also draw the zone tightly around the
+  bowl and lower `max_motion_fraction` if a large area keeps changing.
 - **Too many/few captures** — tune `motion_sensitivity` and `motion_min_area`,
   and tighten the ROI.
 - **High CPU** — lower `detection_fps` and use the camera's sub-stream.

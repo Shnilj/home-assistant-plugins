@@ -437,6 +437,18 @@ class CatWatch:
         self.history.prune(self.s.history_hours * 3600)
         log.info("Unknown %s at %s logged for labelling", verb, zone_name)
 
+    def _handle_no_detection(self, now):
+        """No cat is present this frame — either no qualifying motion, or the
+        recogniser confidently classified the motion as the background/"not a cat"
+        class. Run the same absence debounce and interaction expiry either way, so
+        a flickering empty night frame never turns into activity or an event."""
+        if self._activity_on:
+            if self._absent_since is None:
+                self._absent_since = now
+            elif (now - self._absent_since) >= self.s.presence_grace_seconds:
+                self._set_activity(False, now)
+        self._expire_interaction(now)
+
     def _expire_interaction(self, now):
         I = self._interaction
         if I and (now - I["last_seen"]) >= self.s.presence_grace_seconds:
@@ -502,18 +514,21 @@ class CatWatch:
                 bbox = None
 
         if not motion or bbox is None:
-            # Debounce: a still cat blends into the background and flickers off.
-            if self._activity_on:
-                if self._absent_since is None:
-                    self._absent_since = now
-                elif (now - self._absent_since) >= self.s.presence_grace_seconds:
-                    self._set_activity(False, now)
-            self._expire_interaction(now)
+            self._handle_no_detection(now)
+            return
+
+        crop = _crop(frame, bbox)
+        label, conf = self.model_holder.get().predict(crop)
+
+        # The recogniser can be taught a "not a cat" class (__none__) from empty
+        # frames, IR auto-gain flicker or reflections. When it confidently says the
+        # motion isn't a cat, drop the frame instead of inventing an eating event —
+        # this is what stops phantom night-time meals on cat-less frames.
+        if label == config.NONE_LABEL and conf >= self.s.classifier_confidence:
+            self._handle_no_detection(now)
             return
 
         self._absent_since = None
-        crop = _crop(frame, bbox)
-        label, conf = self.model_holder.get().predict(crop)
         display = label if (conf >= self.s.classifier_confidence and label != "unknown") else "unknown"
         self._set_activity(True, now, display, conf)
 
