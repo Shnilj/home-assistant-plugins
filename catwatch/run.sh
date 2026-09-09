@@ -19,5 +19,12 @@ fi
 
 export LOG_LEVEL="$(bashio::config 'log_level')"
 
+# Use Home Assistant's configured timezone so "today" / daily reset / stats line
+# up with local time instead of UTC.
+if TZ_VAL="$(bashio::info.timezone 2>/dev/null)" && [ -n "${TZ_VAL}" ] && [ "${TZ_VAL}" != "null" ]; then
+    export TZ="${TZ_VAL}"
+    bashio::log.info "Timezone: ${TZ}"
+fi
+
 cd /app
 exec python3 -m app.main

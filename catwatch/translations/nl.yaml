@@ -3,7 +3,8 @@ configuration:
     name: Camera RTSP-URL
     description: >-
       Volledige RTSP-stream-URL van de camera die op de voerbakken gericht is,
-      bijv. rtsp://gebruiker:wachtwoord@192.168.1.50:554/stream1
+      bijv. rtsp://gebruiker:wachtwoord@192.168.1.50:554/stream1. Verborgen omdat
+      het je camerawachtwoord bevat; wis en typ opnieuw om te wijzigen.
   detection_fps:
     name: Beeldsnelheid detectie
     description: >-

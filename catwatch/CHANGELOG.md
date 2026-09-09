@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.2
+
+- **Correct local time.** The add-on now uses Home Assistant's configured
+  timezone, so "today", the daily reset and the stats line up with local time
+  instead of UTC.
+- **Camera URL is masked** in the configuration screen (it contains your camera
+  password). Clear and retype it to change it.
+
 ## 0.10.1
 
 - **Better history thumbnails.** The event snapshot (and its training crop) is now

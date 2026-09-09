@@ -3,7 +3,8 @@ configuration:
     name: Camera RTSP URL
     description: >-
       Full RTSP stream URL of the camera watching the food bowls, e.g.
-      rtsp://user:pass@192.168.1.50:554/stream1
+      rtsp://user:pass@192.168.1.50:554/stream1. Masked because it contains your
+      camera password; clear and retype it to change it.
   detection_fps:
     name: Detection frame rate
     description: >-
