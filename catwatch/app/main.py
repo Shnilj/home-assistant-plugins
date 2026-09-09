@@ -318,15 +318,18 @@ class CatWatch:
                 "since": now, "last_seen": now, "counted": False, "reached_dwell": False,
                 "counted_cat": None, "event_id": None, "votes": {},
                 "last_frame": None, "last_bbox": None,
-                "best_conf": -1.0, "best_frame": None, "best_bbox": None,
+                "best_cov": -1.0, "best_frame": None, "best_bbox": None,
             }
         else:
             I["last_seen"] = now
         I["last_frame"], I["last_bbox"] = frame, bbox
-        # Remember the clearest frame of the visit (highest recognition confidence).
-        # A grey/glitchy frame scores low, so it is never chosen as the snapshot.
-        if conf > I["best_conf"]:
-            I["best_conf"], I["best_frame"], I["best_bbox"] = conf, frame, bbox
+        # Snapshot = the frame where the cat most covers the bowl zone. This is a
+        # geometric measure, so it works in the dark (unlike a confidence score,
+        # which can rate an empty night frame higher than the real cat) and empty
+        # frames score low. Oversized-motion frames are already filtered out.
+        cov = zones.coverage(bbox, zone["rect"]) if bbox is not None else 0.0
+        if cov > I["best_cov"]:
+            I["best_cov"], I["best_frame"], I["best_bbox"] = cov, frame, bbox
 
         if display != "unknown":
             I["votes"][display] = I["votes"].get(display, 0.0) + max(conf, 0.0)
@@ -489,6 +492,14 @@ class CatWatch:
         self._reload_zones()
         region = zones.detect_region(self._zones, frame.shape)
         motion, area, bbox = self.motion.process(frame, region)
+
+        # Ignore frames where the changed area fills most of the view — a running
+        # fountain, a light switching on/off, or a decode glitch, never a single
+        # cat. This stops phantom "eating" events from constant background motion.
+        if bbox is not None:
+            fh, fw = frame.shape[:2]
+            if bbox[2] * bbox[3] > self.s.max_motion_fraction * fw * fh:
+                bbox = None
 
         if not motion or bbox is None:
             # Debounce: a still cat blends into the background and flickers off.

@@ -44,6 +44,7 @@ _DEFAULTS = {
     "detection_fps": 3,
     "motion_sensitivity": 25,
     "motion_min_area": 1500,
+    "max_motion_fraction": 0.6,
     "eating_dwell_seconds": 5,
     "meal_cooldown_minutes": 15,
     "drink_dwell_seconds": 3,
@@ -84,6 +85,7 @@ class Settings:
     detection_fps: int = 3
     motion_sensitivity: int = 25
     motion_min_area: int = 1500
+    max_motion_fraction: float = 0.6
     eating_dwell_seconds: int = 5
     meal_cooldown_minutes: int = 15
     drink_dwell_seconds: int = 3
@@ -143,6 +145,7 @@ def load_settings() -> Settings:
         detection_fps=max(1, _int("detection_fps")),
         motion_sensitivity=_int("motion_sensitivity"),
         motion_min_area=_int("motion_min_area"),
+        max_motion_fraction=float(opts.get("max_motion_fraction", 0.6)),
         eating_dwell_seconds=_int("eating_dwell_seconds"),
         meal_cooldown_minutes=_int("meal_cooldown_minutes"),
         drink_dwell_seconds=_int("drink_dwell_seconds"),

@@ -18,6 +18,12 @@ configuration:
     description: >-
       Smallest changed area (in pixels) that counts as motion. Raise it to
       ignore small movements; lower it if a cat is far from the camera.
+  max_motion_fraction:
+    name: Maximum motion fraction
+    description: >-
+      Ignore frames where the changed area covers more than this fraction (0-1)
+      of the view — a running fountain, lights switching, or a camera glitch,
+      never a single cat. Lower it if whole-scene changes cause false events.
   eating_dwell_seconds:
     name: Eating dwell time
     description: >-

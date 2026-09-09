@@ -1,5 +1,5 @@
 name: CatWatch
-version: "0.10.2"
+version: "0.10.3"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
@@ -39,6 +39,7 @@ options:
   detection_fps: 3
   motion_sensitivity: 25
   motion_min_area: 1500
+  max_motion_fraction: 0.6
   eating_dwell_seconds: 5
   meal_cooldown_minutes: 15
   drink_dwell_seconds: 3
@@ -62,6 +63,7 @@ schema:
   detection_fps: int(1,15)
   motion_sensitivity: int(1,100)
   motion_min_area: int(100,1000000)
+  max_motion_fraction: float(0,1)
   eating_dwell_seconds: int(0,120)
   meal_cooldown_minutes: int(0,240)
   drink_dwell_seconds: int(0,120)

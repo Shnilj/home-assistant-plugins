@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.3
+
+- **Stop phantom events from whole-scene motion.** Frames where the changed area
+  fills most of the view (a running water fountain, lights switching, a camera
+  glitch) are now ignored instead of being treated as a giant "cat" — new
+  `max_motion_fraction` option (default 0.6).
+- **Better snapshot frame in the dark.** The event snapshot is now chosen by how
+  much the cat covers the bowl zone (a geometric measure) rather than recognition
+  confidence, which at night could rate an empty frame higher than the real cat.
+
 ## 0.10.2
 
 - **Correct local time.** The add-on now uses Home Assistant's configured

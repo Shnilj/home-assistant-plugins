@@ -20,6 +20,13 @@ configuration:
     description: >-
       Kleinste veranderde oppervlakte (in pixels) die als beweging telt. Verhoog
       dit om kleine bewegingen te negeren.
+  max_motion_fraction:
+    name: Maximale bewegingsfractie
+    description: >-
+      Negeer beelden waarbij het veranderde gebied meer dan dit deel (0-1) van
+      het beeld beslaat — een lopende fontein, licht dat aan/uit gaat of een
+      camerastoring, nooit één kat. Verlaag als scènebrede veranderingen valse
+      gebeurtenissen veroorzaken.
   eating_dwell_seconds:
     name: Verblijftijd eten
     description: >-
