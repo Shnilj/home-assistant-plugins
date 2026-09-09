@@ -166,6 +166,23 @@ class MqttPublisher:
                 "state_topic": f"{BASE}/{slug}/drink_duration",
                 "unique_id": f"catwatch_{slug}_drink_duration",
             }
+            cmps[f"{slug}_overdue"] = {
+                "p": "binary_sensor", "name": f"{name} overdue", "device_class": "problem",
+                "icon": "mdi:alert", "state_topic": f"{BASE}/{slug}/overdue",
+                "unique_id": f"catwatch_{slug}_overdue",
+            }
+            cmps[f"{slug}_meals_week"] = {
+                "p": "sensor", "name": f"{name} meals this week", "icon": "mdi:calendar-week",
+                "state_class": "total", "state_topic": f"{BASE}/{slug}/meals_week",
+                "unique_id": f"catwatch_{slug}_meals_week",
+            }
+            cmps[f"{slug}_eating_minutes_week"] = {
+                "p": "sensor", "name": f"{name} eating minutes this week",
+                "device_class": "duration", "unit_of_measurement": "min",
+                "state_class": "total", "icon": "mdi:timer-sand",
+                "state_topic": f"{BASE}/{slug}/eating_minutes_week",
+                "unique_id": f"catwatch_{slug}_eating_minutes_week",
+            }
 
         return {
             "dev": {
@@ -218,6 +235,15 @@ class MqttPublisher:
     def publish_action_duration(self, slug: str, action: str, seconds: int):
         key = _ACTION[action][3]
         self.pub(f"{BASE}/{slug}/{key}", str(seconds))
+
+    def publish_overdue(self, slug: str, overdue: bool):
+        self.pub(f"{BASE}/{slug}/overdue", "ON" if overdue else "OFF")
+
+    def publish_meals_week(self, slug: str, meals: int):
+        self.pub(f"{BASE}/{slug}/meals_week", str(meals))
+
+    def publish_eating_minutes_week(self, slug: str, minutes: int):
+        self.pub(f"{BASE}/{slug}/eating_minutes_week", str(minutes))
 
     def publish_snapshot(self, jpg_bytes: bytes):
         if jpg_bytes:

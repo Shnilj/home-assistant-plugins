@@ -19,6 +19,7 @@ CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
 OPTIONS_PATH = os.path.join(DATA_DIR, "options.json")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
 EVENTS_PATH = os.path.join(CONFIG_DIR, "events.json")
+STATS_PATH = os.path.join(CONFIG_DIR, "stats.json")
 MODEL_PATH = os.path.join(DATA_DIR, "model.npz")
 
 # Bundled recognition model. Resolves to catwatch/models/... from source and
@@ -53,6 +54,8 @@ _DEFAULTS = {
     "history_hours": 24,
     "recognizer": "embedding",
     "recognition_margin": 0.6,
+    "log_unknown_visits": True,
+    "overdue_hours": 12,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -91,6 +94,8 @@ class Settings:
     history_hours: int = 24
     recognizer: str = "embedding"
     recognition_margin: float = 0.6
+    log_unknown_visits: bool = True
+    overdue_hours: int = 12
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -148,6 +153,8 @@ def load_settings() -> Settings:
         history_hours=_int("history_hours"),
         recognizer=str(opts.get("recognizer", "embedding")).lower(),
         recognition_margin=float(opts.get("recognition_margin", 0.6)),
+        log_unknown_visits=bool(opts.get("log_unknown_visits", True)),
+        overdue_hours=_int("overdue_hours"),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),

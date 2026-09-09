@@ -23,6 +23,7 @@ from .history import EventLog
 from .motion import MotionDetector
 from .mqtt_client import MqttPublisher
 from .state import ModelHolder, SharedState
+from .stats import DailyStats
 
 log = logging.getLogger("catwatch")
 
@@ -67,6 +68,13 @@ def _vote_winner(votes):
     return winner, votes[winner] / total
 
 
+def _iso_epoch(iso_ts):
+    try:
+        return datetime.fromisoformat(iso_ts).timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
 def _annotate(frame, bbox, caption):
     img = frame.copy()
     if bbox is not None:
@@ -108,6 +116,20 @@ class CatWatch:
         self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR, crop_dir=config.EVENT_CROP_DIR)
         self.history.prune(self.s.history_hours * 3600)
         self._last_prune = time.time()
+        # durable daily aggregate (weekly summaries, overdue, counters)
+        self.stats = DailyStats(config.STATS_PATH)
+        self.stats.prune()
+        self._last_eaten_epoch = {n: None for n in settings.cats}
+        self._seed_last_eaten()
+        self._overdue_state = {n: None for n in settings.cats}
+        self._last_overdue_check = 0.0
+        self._initial_published = False
+        # daily counters are derived from the durable stats store, so they survive
+        # a restart and reflect corrections/deletes made from the web UI.
+        self._last_stats_version = -1
+        for n in settings.cats:
+            tc = self.stats.today_counts(n)
+            self.state.update_cat(n, meals_today=tc["eating"], drinks_today=tc["drinking"])
 
     # -- helpers ------------------------------------------------------------
     def _reload_zones(self):
@@ -120,13 +142,71 @@ class CatWatch:
         today = datetime.now().date()
         if today != self._today:
             self._today = today
+            self.stats.prune()
             for name in self.s.cats:
                 self.state.update_cat(name, meals_today=0, drinks_today=0)
                 slug = config.slugify(name)
                 self.mqtt.publish_action_count(slug, "eating", 0)
                 self.mqtt.publish_action_count(slug, "drinking", 0)
                 self._last_action_ts[name] = {"eating": None, "drinking": None}
+                self._publish_weekly(name)
             log.info("Daily counters reset")
+
+    def _seed_last_eaten(self):
+        """On startup, seed each cat's last-eaten time from the recent history so
+        the overdue check works without waiting for the next meal."""
+        for e in self.history.list():
+            cat = e.get("cat")
+            if (e.get("action") == "eating" and cat in self._last_eaten_epoch
+                    and self._last_eaten_epoch[cat] is None):
+                ep = _iso_epoch(e.get("ts"))
+                if ep:
+                    self._last_eaten_epoch[cat] = ep
+
+    def _publish_weekly(self, cat):
+        w = self.stats.week_totals(cat)
+        slug = config.slugify(cat)
+        self.mqtt.publish_meals_week(slug, w["meals"])
+        self.mqtt.publish_eating_minutes_week(slug, round(w["eat_sec"] / 60))
+
+    def _update_overdue(self, now):
+        if now - self._last_overdue_check < 30:
+            return
+        self._last_overdue_check = now
+        if self.s.overdue_hours <= 0:
+            return
+        threshold = self.s.overdue_hours * 3600
+        for cat in self.s.cats:
+            le = self._last_eaten_epoch.get(cat)
+            overdue = le is not None and (now - le) > threshold
+            if overdue != self._overdue_state.get(cat):
+                self._overdue_state[cat] = overdue
+                self.state.update_cat(cat, overdue=overdue)
+                self.mqtt.publish_overdue(config.slugify(cat), overdue)
+
+    def _publish_initial(self, now):
+        for cat in self.s.cats:
+            le = self._last_eaten_epoch.get(cat)
+            overdue = (self.s.overdue_hours > 0 and le is not None
+                       and (now - le) > self.s.overdue_hours * 3600)
+            self._overdue_state[cat] = overdue
+            self.state.update_cat(cat, overdue=overdue)
+            self.mqtt.publish_overdue(config.slugify(cat), overdue)
+
+    def _sync_counts(self):
+        """Republish daily counts + weekly totals whenever the stats store changes
+        (our own events, or a correction/delete from the web UI)."""
+        if not self.mqtt.connected or self.stats.version == self._last_stats_version:
+            return
+        self._last_stats_version = self.stats.version
+        for cat in self.s.cats:
+            slug = config.slugify(cat)
+            meals = self.stats.count(cat, "eating")
+            drinks = self.stats.count(cat, "drinking")
+            self.state.update_cat(cat, meals_today=meals, drinks_today=drinks)
+            self.mqtt.publish_action_count(slug, "eating", meals)
+            self.mqtt.publish_action_count(slug, "drinking", drinks)
+            self._publish_weekly(cat)
 
     def _set_activity(self, on, now, cat="none", conf=0.0):
         if on:
@@ -179,12 +259,13 @@ class CatWatch:
         cooldown = self.s.cooldown_for(action) * 60
         last = self._last_action_ts[cat][action]
         new_event = last is None or (now - last) >= cooldown
+        if action == "eating":
+            self._last_eaten_epoch[cat] = now
 
         if new_event:
-            count = self.state.cats[cat][count_key] + 1
-            self.state.update_cat(cat, **{count_key: count})
-            self.mqtt.publish_action_count(slug, action, count)
-            log.info("%s — %s at %s (#%d, conf %.2f)", cat, action, zone["name"], count, conf)
+            self.stats.add_event(cat, action)  # counts + weekly republished by _sync_counts
+            log.info("%s — %s at %s (#%d, conf %.2f)", cat, action, zone["name"],
+                     self.stats.count(cat, action), conf)
         self._last_action_ts[cat][action] = now
 
         self.state.update_cat(cat, **{state_key: True, ts_key: ts.isoformat()})
@@ -234,19 +315,23 @@ class CatWatch:
             self._end_interaction()
             I = self._interaction = {
                 "zone_id": zone["id"], "zone_name": zone["name"], "action": action,
-                "since": now, "last_seen": now, "counted": False,
+                "since": now, "last_seen": now, "counted": False, "reached_dwell": False,
                 "counted_cat": None, "event_id": None, "votes": {},
+                "last_frame": None, "last_bbox": None,
             }
         else:
             I["last_seen"] = now
+        I["last_frame"], I["last_bbox"] = frame, bbox
 
         if display != "unknown":
             I["votes"][display] = I["votes"].get(display, 0.0) + max(conf, 0.0)
 
+        if (now - I["since"]) >= self.s.dwell_for(action):
+            I["reached_dwell"] = True
+
         winner, share = _vote_winner(I["votes"])
-        if (not I["counted"] and winner is not None
-                and share >= self.s.recognition_margin
-                and (now - I["since"]) >= self.s.dwell_for(action)):
+        if (not I["counted"] and I["reached_dwell"]
+                and winner is not None and share >= self.s.recognition_margin):
             I["event_id"] = self._register_action(action, winner, frame, bbox, share, now, zone)
             I["counted"] = True
             I["counted_cat"] = winner
@@ -265,9 +350,49 @@ class CatWatch:
             dur_key = "last_meal_duration" if action == "eating" else "last_drink_duration"
             self.state.update_cat(cat, **{dur_key: duration})
             self.mqtt.publish_action_duration(slug, action, duration)
+            self.stats.add_duration(cat, action, duration)  # weekly republished by _sync_counts
             if I.get("event_id"):
                 self.history.set_duration(I["event_id"], duration)
+        elif (I and self.s.log_unknown_visits and I.get("reached_dwell")
+              and not I.get("counted")):
+            # a real visit the recogniser couldn't attribute — log it so it can
+            # be labelled from the timeline (the hard cases the model needs)
+            self._log_unknown(I)
         self._interaction = None
+
+    def _log_unknown(self, I):
+        frame, bbox = I.get("last_frame"), I.get("last_bbox")
+        if frame is None:
+            return
+        ts = datetime.now().astimezone()
+        action, zone_name = I["action"], I["zone_name"]
+        verb = "eating" if action == "eating" else "drinking"
+        stamp = ts.strftime("%Y%m%d_%H%M%S")
+
+        fname = None
+        jpg = _encode_jpg(_annotate(frame, bbox, f"unknown {verb} - {zone_name}"), self.s.jpeg_quality)
+        if jpg:
+            fname = f"unknown_{action}_{stamp}.jpg"
+            try:
+                with open(os.path.join(config.SNAP_DIR, fname), "wb") as fh:
+                    fh.write(jpg)
+            except OSError:
+                fname = None
+
+        crop_name = None
+        cjpg = _encode_jpg(_crop(frame, bbox), self.s.jpeg_quality)
+        if cjpg is not None:
+            crop_name = f"crop_unknown_{action}_{stamp}.jpg"
+            try:
+                with open(os.path.join(config.EVENT_CROP_DIR, crop_name), "wb") as fh:
+                    fh.write(cjpg)
+            except OSError:
+                crop_name = None
+
+        eid = self.history.add("unknown", action, zone_name, fname, ts.isoformat(), crop=crop_name)
+        self.history.set_duration(eid, int(round(max(0.0, I["last_seen"] - I["since"]))))
+        self.history.prune(self.s.history_hours * 3600)
+        log.info("Unknown %s at %s logged for labelling", verb, zone_name)
 
     def _expire_interaction(self, now):
         I = self._interaction
@@ -293,6 +418,7 @@ class CatWatch:
             time.sleep(max(0.0, interval - (time.time() - loop_start)))
 
     def _tick(self):
+        self.state.set_heartbeat(time.time())  # liveness for the watchdog
         self._maybe_reset_daily()
         frame = self.camera.read()
         self.state.update_status(
@@ -313,6 +439,12 @@ class CatWatch:
         if now - self._last_prune > 600:
             self.history.prune(self.s.history_hours * 3600)
             self._last_prune = now
+
+        if self.mqtt.connected and not self._initial_published:
+            self._publish_initial(now)
+            self._initial_published = True
+        self._update_overdue(now)
+        self._sync_counts()
 
         self._reload_zones()
         region = zones.detect_region(self._zones, frame.shape)
@@ -369,7 +501,8 @@ def main():
 
     from .web.server import serve  # local import
     threading.Thread(
-        target=serve, args=(app.state, settings, app.model_holder, app.history, app.camera),
+        target=serve,
+        args=(app.state, settings, app.model_holder, app.history, app.stats, app.camera),
         name="web", daemon=True,
     ).start()
 

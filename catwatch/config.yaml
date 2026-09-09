@@ -1,5 +1,5 @@
 name: CatWatch
-version: "0.6.0"
+version: "0.10.0"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
@@ -26,6 +26,14 @@ services:
 # under /addon_configs/<this-addon-slug>/).
 map:
   - addon_config:rw
+# Supervisor restarts the add-on if this stops responding (the /health endpoint
+# reports the processing loop's liveness).
+watchdog: "http://[HOST]:[PORT:8099]/health"
+# Keep backups small: snapshots and event crops are ephemeral. The trained
+# dataset and settings ARE backed up.
+backup_exclude:
+  - snapshots
+  - event_crops
 options:
   rtsp_url: ""
   detection_fps: 3
@@ -41,6 +49,8 @@ options:
   history_hours: 24
   recognizer: embedding
   recognition_margin: 0.6
+  log_unknown_visits: true
+  overdue_hours: 12
   cats:
     - Ellie
   classifier_confidence: 0.55
@@ -62,6 +72,8 @@ schema:
   history_hours: int(1,168)
   recognizer: list(embedding|signature)
   recognition_margin: float(0,1)
+  log_unknown_visits: bool
+  overdue_hours: int(0,168)
   cats:
     - str
   classifier_confidence: float(0,1)

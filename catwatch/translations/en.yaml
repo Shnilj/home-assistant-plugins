@@ -69,6 +69,16 @@ configuration:
     description: >-
       How dominant the winning cat must be across a visit (0-1) before the event
       is attributed. Higher = fewer wrong guesses but more visits left unattributed.
+  log_unknown_visits:
+    name: Log unknown visits
+    description: >-
+      Record visits the recogniser couldn't attribute as "unknown" events, so you
+      can label them from the History timeline (great for improving recognition).
+  overdue_hours:
+    name: Overdue after (hours)
+    description: >-
+      Turn on a cat's "overdue" sensor if it hasn't been seen eating for this many
+      hours. Set to 0 to disable.
   cats:
     name: Cat names
     description: >-

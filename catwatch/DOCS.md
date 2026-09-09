@@ -56,6 +56,8 @@ hasn't eaten in a while.
 | `history_hours` | `24` | How long the History timeline keeps event snapshots; older ones are deleted. |
 | `recognizer` | `embedding` | `embedding` = local neural network (accurate, lighting-robust; recommended). `signature` = lighter colour/pattern method. Switching requires a retrain. |
 | `recognition_margin` | `0.6` | How dominant the winning cat must be across a visit (0–1) before it's attributed; higher = fewer wrong guesses, more visits left unattributed. |
+| `log_unknown_visits` | `true` | Log unattributed visits as "unknown" events for labelling. |
+| `overdue_hours` | `12` | Turn on a cat's "overdue" sensor if unseen eating this long; 0 disables. |
 | `cats` | `[Ellie]` | Your cats' names. |
 | `classifier_confidence` | `0.55` | Below this, a cat is reported as `unknown`. |
 | `save_captures` | `true` | Save crops so you can label them and improve recognition. |
@@ -129,6 +131,10 @@ And, for each cat, e.g. *Ellie*:
 - **Ellie meals today** / **Ellie drinks today** (`sensor`, reset at midnight).
 - **Ellie last meal duration** / **Ellie last drink duration** (`sensor`, seconds) —
   how long her most recent visit lasted.
+- **Ellie overdue** (`binary_sensor`, problem) — on if she hasn't eaten in
+  `overdue_hours`.
+- **Ellie meals this week** / **Ellie eating minutes this week** (`sensor`) —
+  7-day rolling totals for trends.
 
 ---
 
@@ -226,8 +232,12 @@ visit. Second, a visit is only attributed when the winning cat clears
 `recognition_margin`; below that it's left unattributed — better a missing count
 than a wrong one.
 
-**Fix mistakes from the timeline.** When an event names the wrong cat, use the
-"✎ correct…" picker on that history tile and choose the right one. This fixes the
+Visits the recogniser can't confidently attribute are logged as **❓ unknown**
+events (unless `log_unknown_visits` is off) — filter the timeline by "unknown" and
+label them; they're the most valuable training examples.
+
+**Fix mistakes from the timeline.** When an event names the wrong cat (or shows
+unknown), use the "✎ correct…" picker on that history tile and choose the right one. This fixes the
 record and files that event's crop as a labelled example for the correct cat — so
 every correction makes the model a little better. Click **Train** afterwards to
 apply your corrections.

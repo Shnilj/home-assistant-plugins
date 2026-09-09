@@ -9,6 +9,7 @@ import glob
 import logging
 import os
 import shutil
+import time
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 from waitress import serve as waitress_serve
@@ -91,6 +92,13 @@ INDEX_HTML = """<!doctype html>
   .confusion th, .confusion td { padding: 4px 10px; text-align: center; font-size: 13px; border: 1px solid #8883; }
   .confusion th { opacity: .75; }
   .confusion td.diag { font-weight: 700; color: #0a8a3a; }
+  .wkrow { display: flex; align-items: flex-end; gap: 10px; margin: 6px 0; }
+  .wklabel { width: 100px; font-size: 13px; display: flex; align-items: center; gap: 6px; flex: none; }
+  .wkbars { display: flex; gap: 8px; align-items: flex-end; }
+  .wkbar { width: 34px; text-align: center; font-size: 11px; }
+  .wkfill { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .wknum { font-size: 11px; opacity: .7; }
+  .wkdaylabel { opacity: .6; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td { padding: 6px 4px; border-bottom: 1px solid #8882; vertical-align: top; }
   .muted { opacity: .6; font-size: 13px; }
@@ -125,6 +133,11 @@ INDEX_HTML = """<!doctype html>
     <div id="histChips" class="chips"></div>
     <div id="histHint" class="muted" style="margin:-4px 0 8px"></div>
     <div id="history" class="evgrid"></div>
+  </div>
+
+  <div class="card full" data-tab="monitor">
+    <h2>Last 7 days</h2>
+    <div id="week"></div>
   </div>
 
   <div class="card full" data-tab="zones">
@@ -348,7 +361,7 @@ async function loadStatus() {
     `<div style="margin-top:10px">${nowLine}</div>`;
   let rows = '';
   for (const [name, c] of Object.entries(j.cats)) {
-    const doing = c.eating ? '🍽️ eating' : (c.drinking ? '💧 drinking' : '—');
+    const doing = c.eating ? '🍽️ eating' : (c.drinking ? '💧 drinking' : (c.overdue ? '⚠️ overdue' : '—'));
     rows += `<tr><td><b>${name}</b></td><td>${doing}</td>`
          + `<td>${c.meals_today} 🍽️<br>${c.drinks_today} 💧</td>`
          + `<td class="muted">ate ${fmtTime(c.last_eaten)}${c.last_meal_duration!=null?' ('+fmtDur(c.last_meal_duration)+')':''}`
@@ -440,7 +453,7 @@ function renderHistory() {
             : '<div class="noimg"></div>'}
          <button class="del" title="Remove" onclick="deleteEvent('${e.id}')">✕</button>
        </div>
-       <div class="cap2">${actionIcon(e.action)} <b>${e.cat}</b><br>
+       <div class="cap2">${actionIcon(e.action)} ${e.cat === 'unknown' ? '<span class="muted">❓ unknown</span>' : '<b>' + e.cat + '</b>'}<br>
          <span class="muted">${fmtWhen(e.ts)} · ${e.zone}${e.duration != null ? ' · ' + fmtDur(e.duration) : ''}</span></div>
        <select class="fix" onchange="relabelEvent('${e.id}', this.value)">
          <option value="">✎ correct…</option>
@@ -474,6 +487,30 @@ async function loadHistory() {
   buildHistChips(); renderHistory();
 }
 
+const CATCOLORS = ['#3f51b5', '#00c853', '#ff7043', '#ab47bc', '#26c6da', '#fbc02d'];
+async function loadWeek() {
+  const j = await (await fetch('api/stats')).json();
+  const days = j.days, cats = j.cats;
+  let max = 1;
+  days.forEach(d => cats.forEach(c => { max = Math.max(max, d.cats[c].meals); }));
+  let html = '';
+  cats.forEach((c, ci) => {
+    const color = CATCOLORS[ci % CATCOLORS.length];
+    html += `<div class="wkrow"><div class="wklabel"><span class="dot" style="background:${color}"></span>${c}</div><div class="wkbars">`;
+    days.forEach(d => {
+      const meals = d.cats[c].meals;
+      const h = Math.round(meals / max * 44);
+      html += `<div class="wkbar" title="${d.date}: ${meals} meals, ${Math.round(d.cats[c].eat_sec/60)} min at bowl">
+                 <div class="wkfill" style="height:${h}px;background:${color}"></div><div class="wknum">${meals || ''}</div></div>`;
+    });
+    html += `</div></div>`;
+  });
+  const labels = days.map(d => new Date(d.date).toLocaleDateString([], {weekday:'short'}));
+  html += `<div class="wkrow"><div class="wklabel muted">meals / day</div><div class="wkbars">` +
+    labels.map(l => `<div class="wkbar wkdaylabel">${l}</div>`).join('') + `</div></div>`;
+  document.getElementById('week').innerHTML = html;
+}
+
 frame.addEventListener('load', fit);
 window.addEventListener('resize', fit);
 window.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('lightbox').hidden = true; });
@@ -489,16 +526,23 @@ showTab('monitor');
 loadCats().then(loadCaptures);
 loadZones();
 loadHistory();
+loadWeek();
 loadStatus(); refreshFrame(); refreshSnap();
 setInterval(loadStatus, 2000);
 setInterval(refreshFrame, 1500);
 setInterval(refreshSnap, 3000);
 setInterval(loadHistory, 15000);
+setInterval(loadWeek, 60000);
 setInterval(() => { if (SELECTED.size === 0) loadCaptures(); }, 8000);
 </script>
 </body>
 </html>
 """
+
+
+def _event_day(ev):
+    ts = ev.get("ts", "")
+    return ts[:10] if len(ts) >= 10 else None
 
 
 def _list_captures(limit=60):
@@ -507,7 +551,7 @@ def _list_captures(limit=60):
     return [os.path.basename(f) for f in files[:limit]]
 
 
-def create_app(state: SharedState, settings: config.Settings, model_holder: ModelHolder, history):
+def create_app(state: SharedState, settings: config.Settings, model_holder: ModelHolder, history, stats):
     app = Flask(__name__)
 
     @app.get("/")
@@ -521,6 +565,13 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     @app.get("/api/status")
     def api_status():
         return jsonify(state.snapshot_status())
+
+    @app.get("/health")
+    def health():
+        # Used by the Supervisor watchdog: 200 while the processing loop is ticking.
+        hb = state.get_heartbeat()
+        ok = (not hb) or (time.time() - hb) < 60
+        return ("ok", 200) if ok else ("stale", 503)
 
     @app.get("/api/frame.jpg")
     def api_frame():
@@ -536,10 +587,20 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     def api_events():
         return jsonify(history.list())
 
+    @app.get("/api/stats")
+    def api_stats():
+        return jsonify({"cats": settings.cats, "days": stats.last_days(7, settings.cats)})
+
     @app.post("/api/events/delete")
     def api_events_delete():
         event_id = (request.get_json(silent=True) or {}).get("id", "")
-        return jsonify({"ok": bool(history.remove(event_id))})
+        ev = history.get(event_id)
+        ok = history.remove(event_id)
+        if ok and ev and ev.get("cat") and ev.get("cat") != "unknown":
+            day, action = _event_day(ev), ev.get("action")
+            if day and action in ("eating", "drinking"):
+                stats.adjust(day, ev["cat"], action, d_count=-1, d_seconds=-(ev.get("duration") or 0))
+        return jsonify({"ok": bool(ok)})
 
     @app.post("/api/events/relabel")
     def api_events_relabel():
@@ -570,6 +631,13 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
                     trained = True
                 except OSError:
                     pass
+        # Move the meal/drink between cats in the durable stats (unknown didn't count).
+        old, action = ev.get("cat"), ev.get("action")
+        day, dur = _event_day(ev), (ev.get("duration") or 0)
+        if day and action in ("eating", "drinking") and old != cat:
+            if old and old != "unknown":
+                stats.adjust(day, old, action, d_count=-1, d_seconds=-dur)
+            stats.adjust(day, cat, action, d_count=1, d_seconds=dur)
         history.set_fields(event_id, **fields)
         return jsonify({"ok": True, "trained": trained})
 
@@ -643,7 +711,7 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     return app
 
 
-def serve(state, settings, model_holder, history, camera=None):
-    app = create_app(state, settings, model_holder, history)
+def serve(state, settings, model_holder, history, stats, camera=None):
+    app = create_app(state, settings, model_holder, history, stats)
     log.info("Web UI listening on :8099 (ingress)")
     waitress_serve(app, host="0.0.0.0", port=8099, threads=6)

@@ -9,6 +9,7 @@ class SharedState:
         self._lock = threading.Lock()
         self.latest_frame_jpg = None      # newest raw camera frame (for zone editor)
         self.latest_snapshot_jpg = None   # newest event snapshot (annotated)
+        self.heartbeat = 0.0              # epoch of the last processing-loop tick
         self.status = {
             "camera_connected": False,
             "activity": False,
@@ -30,6 +31,7 @@ class SharedState:
                 "drinks_today": 0,
                 "last_meal_duration": None,
                 "last_drink_duration": None,
+                "overdue": False,
             }
             for name in cat_names
         }
@@ -49,6 +51,12 @@ class SharedState:
     def get_snapshot(self):
         with self._lock:
             return self.latest_snapshot_jpg
+
+    def set_heartbeat(self, epoch):
+        self.heartbeat = epoch
+
+    def get_heartbeat(self):
+        return self.heartbeat
 
     def update_status(self, **kwargs):
         with self._lock:

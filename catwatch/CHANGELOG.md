@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.10.0
+
+- **Dutch translation** of the configuration options (`nl.yaml`).
+- **Test suite + CI.** A pytest suite covers the pure logic (zones, history,
+  stats, config, classifier), run automatically by GitHub Actions on every push
+  alongside byte-compile and YAML validation.
+
+## 0.9.0
+
+- **Auto-recovery.** A `/health` endpoint reports the processing loop's liveness
+  and a Supervisor `watchdog` restarts the add-on if it ever stops ticking.
+- **Counters now survive restarts and reflect edits.** Daily meal/drink counts
+  are derived from the durable stats store, so a mid-day restart no longer resets
+  them — and correcting or deleting a history event now adjusts the counts (and
+  weekly totals) accordingly.
+- **Leaner backups.** Snapshots and event crops are excluded from Home Assistant
+  backups; the trained dataset and settings are still included.
+
+## 0.8.0
+
+- **Health insight.** New per-cat Home Assistant sensors: **overdue** (a problem
+  sensor that turns on when a cat hasn't eaten in `overdue_hours`, default 12; 0
+  disables), **meals this week**, and **eating minutes this week**.
+- **Last 7 days** summary chart on the Monitor tab — meals per day per cat, to
+  spot trends (e.g. a cat gradually eating less).
+- A small durable stats store (`/config/stats.json`) keeps daily totals beyond
+  the snapshot window; the cat table shows an ⚠️ when a cat is overdue.
+
+## 0.7.0
+
+- **Unknown visits are now logged.** When a cat clearly visits a bowl but the
+  recogniser can't confidently say which cat, that visit is recorded as an
+  "❓ unknown" event in the History timeline (with a training crop). Use the
+  "correct…" picker to label it — these are exactly the hard cases the model
+  learns most from. Disable via the `log_unknown_visits` option.
+
 ## 0.6.0
 
 - **Correct a wrong recognition, and teach the model.** Each event in the History

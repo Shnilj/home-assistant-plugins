@@ -1,0 +1,104 @@
+configuration:
+  rtsp_url:
+    name: Camera RTSP-URL
+    description: >-
+      Volledige RTSP-stream-URL van de camera die op de voerbakken gericht is,
+      bijv. rtsp://gebruiker:wachtwoord@192.168.1.50:554/stream1
+  detection_fps:
+    name: Beeldsnelheid detectie
+    description: >-
+      Hoeveel beelden per seconde geanalyseerd worden. 2-4 is ruim voldoende en
+      houdt het CPU-gebruik laag.
+  motion_sensitivity:
+    name: Bewegingsgevoeligheid
+    description: >-
+      Drempel voor pixelverandering (1 = zeer gevoelig, 100 = alleen grote
+      veranderingen).
+  motion_min_area:
+    name: Minimale bewegingsoppervlakte
+    description: >-
+      Kleinste veranderde oppervlakte (in pixels) die als beweging telt. Verhoog
+      dit om kleine bewegingen te negeren.
+  eating_dwell_seconds:
+    name: Verblijftijd eten
+    description: >-
+      Een kat moet zo veel seconden bij de bak blijven voordat het als "eten"
+      telt. Filtert katten die enkel passeren.
+  meal_cooldown_minutes:
+    name: Wachttijd tussen maaltijden
+    description: >-
+      Minimaal aantal minuten tussen getelde maaltijden voor dezelfde kat.
+      Herhaalde bezoeken binnen dit venster tellen als één maaltijd.
+  drink_dwell_seconds:
+    name: Verblijftijd drinken
+    description: >-
+      Hoe lang een kat bij een waterzone moet blijven voordat het als drinken
+      telt. Drinken is korter dan eten, dus meestal lager.
+  drink_cooldown_minutes:
+    name: Wachttijd tussen drinkbeurten
+    description: Minimaal aantal minuten tussen getelde drinkbeurten per kat.
+  presence_grace_seconds:
+    name: Aanwezigheidsmarge
+    description: >-
+      Seconden zonder beweging die getolereerd worden voordat een bezoek als
+      beëindigd geldt. Overbrugt korte gaten wanneer een stille kat in de
+      achtergrond opgaat.
+  zone_coverage:
+    name: Dekkingsdrempel zone
+    description: >-
+      Deel van een bakzone dat de kat moet bedekken (0-1) om die zone te
+      gebruiken. Hoger = de kat moet meer recht boven de bak zitten.
+  require_lean_in:
+    name: Vereis voorovergebogen houding
+    description: >-
+      Tel eten/drinken alleen wanneer de kat over de bak gebogen zit (lichaam
+      boven de zone), niet enkel wanneer hij in een grote zone zit. Zet uit als
+      je camera recht naar beneden kijkt.
+  history_hours:
+    name: Bewaartijd geschiedenis (uren)
+    description: >-
+      Hoe lang gebeurtenis-snapshots in de tijdlijn bewaard blijven. Oudere
+      gebeurtenissen en hun beelden worden automatisch verwijderd.
+  recognizer:
+    name: Herkenner
+    description: >-
+      "embedding" gebruikt een lokaal neuraal netwerk (nauwkeuriger, robuust bij
+      wisselend licht; aanbevolen). "signature" gebruikt een lichtere kleur/patroon
+      -methode. Bij wisselen moet je opnieuw trainen (klik Train in de web-UI).
+  recognition_margin:
+    name: Herkenningsmarge
+    description: >-
+      Hoe dominant de winnende kat over een bezoek moet zijn (0-1) voordat de
+      gebeurtenis wordt toegewezen. Hoger = minder foute gokken maar meer bezoeken
+      zonder toewijzing.
+  log_unknown_visits:
+    name: Onbekende bezoeken vastleggen
+    description: >-
+      Leg bezoeken die de herkenner niet kon toewijzen vast als "onbekend", zodat
+      je ze in de tijdlijn kunt labelen (ideaal om herkenning te verbeteren).
+  overdue_hours:
+    name: Achterstallig na (uren)
+    description: >-
+      Zet de "achterstallig"-sensor van een kat aan als hij zo veel uur niet
+      etend gezien is. Zet op 0 om uit te schakelen.
+  cats:
+    name: Namen van de katten
+    description: >-
+      De namen van je katten. Per naam wordt één set entiteiten aangemaakt.
+  classifier_confidence:
+    name: Vertrouwensdrempel herkenning
+    description: >-
+      Minimaal vertrouwen (0-1) om een kat te benoemen. Daaronder wordt
+      "onbekend" gemeld.
+  save_captures:
+    name: Opnames bewaren voor training
+    description: >-
+      Bewaar elke gedetecteerde uitsnede zodat je ze in de web-UI kunt labelen en
+      de herkenning na verloop van tijd verbetert.
+  jpeg_quality:
+    name: JPEG-kwaliteit snapshot
+    description: JPEG-kwaliteit (30-100) voor bewaarde snapshots en het MQTT-beeld.
+  log_level:
+    name: Logniveau
+    description: Uitgebreidheid van het add-on-log.
+network: {}
