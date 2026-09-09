@@ -241,10 +241,17 @@ def save_history(history: dict) -> None:
     _atomic_write(config.HISTORY_PATH, history)
 
 
+def _is_date_key(k) -> bool:
+    return isinstance(k, str) and len(k) == 10 and k[4] == "-" and k[7] == "-"
+
+
 def prune_history(history: dict, keep_days: int) -> dict:
-    if len(history) <= keep_days:
+    """Drop old per-day logs, but never the ``_last_given`` marker (so a
+    medication's last-given time survives even when its dose day is pruned)."""
+    date_keys = [k for k in history if _is_date_key(k)]
+    if len(date_keys) <= keep_days:
         return history
-    for day in sorted(history.keys())[:-keep_days]:
+    for day in sorted(date_keys)[:-keep_days]:
         history.pop(day, None)
     return history
 
@@ -261,6 +268,8 @@ def record(history: dict, day_iso: str, sid: str, mid: str, inst_key: str,
         "at": at_iso,
         "dose": dose,
     }
+    if status == "taken":
+        history.setdefault("_last_given", {}).setdefault(sid, {})[mid] = at_iso
 
 
 def unrecord(history: dict, day_iso: str, sid: str, mid: str, inst_key: str) -> dict | None:
@@ -269,3 +278,23 @@ def unrecord(history: dict, day_iso: str, sid: str, mid: str, inst_key: str) -> 
     except KeyError:
         return None
     return rec
+
+
+def recompute_last_given(history: dict, sid: str, mid: str) -> None:
+    """Recompute the persistent ``_last_given`` marker for one medication from
+    the per-day logs still on disk (used after an undo). Removes it if no taken
+    record remains in the retained history."""
+    best = None
+    for day, subs in history.items():
+        if not _is_date_key(day):
+            continue
+        recs = (subs.get(sid, {}) or {}).get(mid, {}) or {}
+        for r in recs.values():
+            if r.get("status") == "taken" and r.get("at"):
+                if best is None or r["at"] > best:
+                    best = r["at"]
+    lg = history.get("_last_given", {})
+    if best:
+        lg.setdefault(sid, {})[mid] = best
+    elif sid in lg and mid in lg[sid]:
+        del lg[sid][mid]

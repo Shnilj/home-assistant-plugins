@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.3
+
+- The **Today** web view now shows each medicine's "Last given" time under the
+  medication, alongside the existing next-due / course / inventory lines.
+
+## 0.2.2
+
+- **Persistent "last given".** Each medication's `last taken` timestamp now
+  reflects the most recent dose across the whole history, not just today — so a
+  weekly shot (or any medicine) still shows when it was last given on the days in
+  between. Survives history pruning via a dedicated marker, and is recomputed
+  correctly on Undo.
+
 ## 0.2.1
 
 - The hub **Total due now** sensor's `due` attribute now includes `subject_id`

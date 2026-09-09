@@ -548,6 +548,37 @@ def compute_subject(subject: dict, subj_log: dict, now: datetime, settings) -> d
     }
 
 
+def latest_taken(history: dict, sid: str, mid: str):
+    """Most recent 'taken' timestamp for a medication across the WHOLE history
+    (all days), or None. Used for a persistent "last given" that survives across
+    days — unlike the per-day view, which only knows about today."""
+    best = None
+    for day, subs in (history or {}).items():
+        if day == "_last_given" or not isinstance(subs, dict):
+            continue
+        recs = (subs.get(sid, {}) or {}).get(mid, {}) or {}
+        if not isinstance(recs, dict):
+            continue
+        for r in recs.values():
+            if isinstance(r, dict) and r.get("status") == "taken" and r.get("at"):
+                try:
+                    dt = datetime.fromisoformat(r["at"])
+                except (ValueError, TypeError):
+                    continue
+                if best is None or dt > best:
+                    best = dt
+    # The persistent marker survives history pruning; fold it in.
+    marker = ((history or {}).get("_last_given", {}) or {}).get(sid, {}).get(mid)
+    if marker:
+        try:
+            mdt = datetime.fromisoformat(marker)
+            if best is None or mdt > best:
+                best = mdt
+        except (ValueError, TypeError):
+            pass
+    return best.isoformat() if best else None
+
+
 def compute_model(subjects: list, history_day: dict, now: datetime, settings) -> dict:
     """Build the whole runtime model for today across every subject + the hub."""
     subj_views = []

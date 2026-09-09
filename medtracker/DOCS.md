@@ -89,7 +89,7 @@ summary**, and a **Take all due** button.
 | --- | --- | --- |
 | `<med>` state | sensor (enum) | upcoming / due / overdue / done / none. |
 | `<med>` next due | sensor (timestamp) | Next untaken dose. |
-| `<med>` last taken | sensor (timestamp) | |
+| `<med>` last taken | sensor (timestamp) | When the medicine was last given — the most recent dose across all history, not just today. |
 | `<med>` taken today | sensor | |
 | `<med>` scheduled today | sensor | |
 | `<med>` remaining today | sensor | |

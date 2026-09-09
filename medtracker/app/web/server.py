@@ -194,6 +194,12 @@ async function loadToday(){
 }
 function hub_line(h){return h.next_summary;}
 function countScheduled(m){return m.subjects.reduce((a,s)=>a+s.scheduled_today,0);}
+function whenText(iso){
+  const dt=new Date(iso);
+  const t=dt.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+  if(iso.slice(0,10)===window.MODEL_DATE)return "today "+t;
+  return dt.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+t;
+}
 function nextText(md){
   if(!md.next_due_time)return "";
   let t=md.next_due_time;
@@ -214,6 +220,7 @@ function medRow(s,md){
   else{line=nt?("Next: "+nt):"Not scheduled";}
   left.append(el("div","mline",line));
   if(md.course){left.append(el("div","mline","📅 Course: "+escapeHtml(md.course.summary)));}
+  if(md.last_taken_iso){left.append(el("div","mline","✓ Last given: "+whenText(md.last_taken_iso)));}
   r1.append(left);
   r1.append(el("span","chip s-"+md.state,md.state));
   d.append(r1);

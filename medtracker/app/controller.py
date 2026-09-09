@@ -66,7 +66,16 @@ class Controller:
         now = now or datetime.now()
         with self._lock:
             day_log = store.day_log(self._history, now.date().isoformat())
-            return schedule.compute_model(self.subjects(), day_log, now, self.s)
+            model = schedule.compute_model(self.subjects(), day_log, now, self.s)
+            # Overlay a persistent "last given" from the whole history, so the
+            # last_taken timestamp survives across days (a weekly shot still shows
+            # when it was last given on the days in between).
+            for s in model["subjects"]:
+                for m in s["medications"]:
+                    lg = schedule.latest_taken(self._history, s["id"], m["id"])
+                    if lg:
+                        m["last_taken_iso"] = lg
+            return model
 
     def _med_view(self, sid, mid, now):
         _s, med = self._find(sid, mid)
@@ -146,6 +155,7 @@ class Controller:
             inv_changed = False
             if rec and rec.get("status") == "taken":
                 inv_changed = self._adjust_inventory(med, float(rec.get("dose") or 0))
+                store.recompute_last_given(self._history, sid, mid)
             log.info("Undo: %s/%s @ %s", sid, mid, inst["key"])
             self._persist(inv_changed)
             return True
