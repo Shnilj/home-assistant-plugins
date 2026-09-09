@@ -318,10 +318,15 @@ class CatWatch:
                 "since": now, "last_seen": now, "counted": False, "reached_dwell": False,
                 "counted_cat": None, "event_id": None, "votes": {},
                 "last_frame": None, "last_bbox": None,
+                "best_conf": -1.0, "best_frame": None, "best_bbox": None,
             }
         else:
             I["last_seen"] = now
         I["last_frame"], I["last_bbox"] = frame, bbox
+        # Remember the clearest frame of the visit (highest recognition confidence).
+        # A grey/glitchy frame scores low, so it is never chosen as the snapshot.
+        if conf > I["best_conf"]:
+            I["best_conf"], I["best_frame"], I["best_bbox"] = conf, frame, bbox
 
         if display != "unknown":
             I["votes"][display] = I["votes"].get(display, 0.0) + max(conf, 0.0)
@@ -353,6 +358,7 @@ class CatWatch:
             self.stats.add_duration(cat, action, duration)  # weekly republished by _sync_counts
             if I.get("event_id"):
                 self.history.set_duration(I["event_id"], duration)
+                self._finalize_snapshot(I, cat)
         elif (I and self.s.log_unknown_visits and I.get("reached_dwell")
               and not I.get("counted")):
             # a real visit the recogniser couldn't attribute — log it so it can
@@ -360,8 +366,42 @@ class CatWatch:
             self._log_unknown(I)
         self._interaction = None
 
+    def _finalize_snapshot(self, I, cat):
+        """Rewrite the event's snapshot + training crop from the clearest frame of
+        the visit, so the history thumbnail reliably shows the cat rather than a
+        single unlucky commit-instant (or glitchy) frame."""
+        frame, bbox = I.get("best_frame"), I.get("best_bbox")
+        if frame is None:
+            return
+        ev = self.history.get(I["event_id"])
+        if not ev:
+            return
+        verb = "eating" if I["action"] == "eating" else "drinking"
+        jpg = _encode_jpg(_annotate(frame, bbox, f"{cat} {verb} - {I['zone_name']}"),
+                          self.s.jpeg_quality)
+        if jpg:
+            self.state.set_snapshot(jpg)
+            self.mqtt.publish_snapshot(jpg)
+            sname = ev.get("snapshot")
+            if sname:
+                try:
+                    with open(os.path.join(config.SNAP_DIR, os.path.basename(sname)), "wb") as fh:
+                        fh.write(jpg)
+                except OSError:
+                    pass
+        cjpg = _encode_jpg(_crop(frame, bbox), self.s.jpeg_quality)
+        cname = ev.get("crop")
+        if cjpg is not None and cname:
+            try:
+                with open(os.path.join(config.EVENT_CROP_DIR, os.path.basename(cname)), "wb") as fh:
+                    fh.write(cjpg)
+            except OSError:
+                pass
+
     def _log_unknown(self, I):
-        frame, bbox = I.get("last_frame"), I.get("last_bbox")
+        frame, bbox = I.get("best_frame"), I.get("best_bbox")
+        if frame is None:
+            frame, bbox = I.get("last_frame"), I.get("last_bbox")
         if frame is None:
             return
         ts = datetime.now().astimezone()

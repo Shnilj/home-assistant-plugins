@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1
+
+- **Better history thumbnails.** The event snapshot (and its training crop) is now
+  taken from the clearest frame of the whole visit — the one with the highest
+  recognition confidence — and finalised when the visit ends, instead of a single
+  frame from the moment the meal was first logged. A grey/glitchy camera frame or
+  an unlucky split-second no longer becomes the saved image.
+
 ## 0.10.0
 
 - **Dutch translation** of the configuration options (`nl.yaml`).
