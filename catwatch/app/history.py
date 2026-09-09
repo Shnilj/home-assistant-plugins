@@ -25,9 +25,10 @@ def _epoch(iso_ts: str) -> float:
 
 
 class EventLog:
-    def __init__(self, path: str, snap_dir: str, max_events: int = 1000):
+    def __init__(self, path: str, snap_dir: str, crop_dir: str = None, max_events: int = 1000):
         self.path = path
         self.snap_dir = snap_dir
+        self.crop_dir = crop_dir
         self.max_events = max_events
         self._lock = threading.Lock()
         self._events = self._load()
@@ -62,17 +63,20 @@ class EventLog:
             log.warning("Could not write event log: %s", exc)
 
     def _delete_snapshot(self, event: dict) -> None:
-        name = event.get("snapshot")
-        if not name:
-            return
-        try:
-            os.remove(os.path.join(self.snap_dir, os.path.basename(name)))
-        except OSError:
-            pass
+        # Remove the event's snapshot and its raw training crop. Any copy that
+        # was filed into the dataset by a correction is intentionally kept.
+        for base, key in ((self.snap_dir, "snapshot"), (self.crop_dir, "crop")):
+            name = event.get(key)
+            if base and name:
+                try:
+                    os.remove(os.path.join(base, os.path.basename(name)))
+                except OSError:
+                    pass
 
-    def add(self, cat, action, zone, snapshot, ts_iso) -> str:
+    def add(self, cat, action, zone, snapshot, ts_iso, crop=None) -> str:
         event = {"id": uuid.uuid4().hex[:8], "ts": ts_iso, "cat": cat,
-                 "action": action, "zone": zone, "snapshot": snapshot, "duration": None}
+                 "action": action, "zone": zone, "snapshot": snapshot,
+                 "crop": crop, "duration": None}
         with self._lock:
             self._events.append(event)
             if len(self._events) > self.max_events:
@@ -116,6 +120,22 @@ class EventLog:
                 if e.get("id") == event_id:
                     self._delete_snapshot(e)
                     del self._events[i]
+                    self._save()
+                    return True
+        return False
+
+    def get(self, event_id: str):
+        with self._lock:
+            for e in self._events:
+                if e.get("id") == event_id:
+                    return dict(e)
+        return None
+
+    def set_fields(self, event_id: str, **fields) -> bool:
+        with self._lock:
+            for e in self._events:
+                if e.get("id") == event_id:
+                    e.update(fields)
                     self._save()
                     return True
         return False

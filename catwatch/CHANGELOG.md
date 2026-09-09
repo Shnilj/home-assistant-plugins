@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **Correct a wrong recognition, and teach the model.** Each event in the History
+  timeline now has a "✎ correct…" picker. Choosing the right cat fixes the record
+  **and** files that event's crop as a labelled training example for that cat, so
+  correcting mistakes actively improves recognition. Click Train afterwards to
+  apply. (Picking the same cat that's shown also works — it confirms a correct one
+  into the training set.)
+- Each event now stores a clean, unannotated crop for this purpose. Event crops
+  are pruned with the event; crops filed into training by a correction are kept.
+
 ## 0.5.1
 
 - New per-cat Home Assistant sensors: **last meal duration** and **last drink

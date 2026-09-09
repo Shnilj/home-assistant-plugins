@@ -226,6 +226,12 @@ visit. Second, a visit is only attributed when the winning cat clears
 `recognition_margin`; below that it's left unattributed — better a missing count
 than a wrong one.
 
+**Fix mistakes from the timeline.** When an event names the wrong cat, use the
+"✎ correct…" picker on that history tile and choose the right one. This fixes the
+record and files that event's crop as a labelled example for the correct cat — so
+every correction makes the model a little better. Click **Train** afterwards to
+apply your corrections.
+
 Click **Evaluate accuracy** any time to see how well it's doing: it runs a
 leave-one-out test over your labelled crops (each classified using all the
 others), reports accuracy for each recognizer, and shows the crops it gets wrong

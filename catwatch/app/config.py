@@ -29,6 +29,7 @@ EMBED_MODEL_PATH = os.environ.get(
 )
 
 SNAP_DIR = os.path.join(CONFIG_DIR, "snapshots")
+EVENT_CROP_DIR = os.path.join(CONFIG_DIR, "event_crops")
 DATASET_DIR = os.path.join(CONFIG_DIR, "dataset")
 UNLABELED_DIR = os.path.join(DATASET_DIR, "_unlabeled")
 
@@ -221,7 +222,7 @@ def save_zones(zones) -> None:
 
 
 def ensure_dirs(settings: Settings) -> None:
-    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, DATASET_DIR, UNLABELED_DIR):
+    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, EVENT_CROP_DIR, DATASET_DIR, UNLABELED_DIR):
         os.makedirs(d, exist_ok=True)
     for slug, name in settings.cat_slugs.items():
         os.makedirs(os.path.join(DATASET_DIR, name), exist_ok=True)

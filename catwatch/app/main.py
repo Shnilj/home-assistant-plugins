@@ -105,7 +105,7 @@ class CatWatch:
         self._last_ui_frame = 0.0
         self._today = datetime.now().date()
         # event history (rolling archive of counted events)
-        self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR)
+        self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR, crop_dir=config.EVENT_CROP_DIR)
         self.history.prune(self.s.history_hours * 3600)
         self._last_prune = time.time()
 
@@ -208,7 +208,19 @@ class CatWatch:
                     fname = None
 
         if new_event:
-            eid = self.history.add(cat, action, zone["name"], fname, ts.isoformat())
+            # Also save the raw (unannotated) cat crop, so a later correction can
+            # file it as a clean training example for the right cat.
+            crop_name = None
+            cjpg = _encode_jpg(_crop(frame, bbox), self.s.jpeg_quality)
+            if cjpg is not None:
+                crop_name = f"crop_{slug}_{ts.strftime('%Y%m%d_%H%M%S')}.jpg"
+                try:
+                    with open(os.path.join(config.EVENT_CROP_DIR, crop_name), "wb") as fh:
+                        fh.write(cjpg)
+                except OSError as exc:
+                    log.warning("Could not write event crop: %s", exc)
+                    crop_name = None
+            eid = self.history.add(cat, action, zone["name"], fname, ts.isoformat(), crop=crop_name)
             self.history.prune(self.s.history_hours * 3600)
             return eid
         return None

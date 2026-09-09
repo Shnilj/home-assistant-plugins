@@ -8,6 +8,7 @@ from __future__ import annotations
 import glob
 import logging
 import os
+import shutil
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 from waitress import serve as waitress_serve
@@ -77,6 +78,8 @@ INDEX_HTML = """<!doctype html>
     line-height: 22px; text-align: center; cursor: pointer; display: none; }
   .ev:hover .del, .evimg:focus-within .del { display: block; }
   .ev .cap2 { font-size: 12px; margin-top: 4px; line-height: 1.35; }
+  .ev select.fix { width: 132px; margin-top: 4px; font-size: 12px; padding: 3px; border-radius: 6px;
+    background: transparent; color: inherit; border: 1px solid #8888; }
   img.snap { cursor: zoom-in; }
   #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex;
     align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 20px; }
@@ -120,6 +123,7 @@ INDEX_HTML = """<!doctype html>
     <h2>History — last 24h</h2>
     <div id="histTotals" style="margin:-4px 0 12px; font-size:14px"></div>
     <div id="histChips" class="chips"></div>
+    <div id="histHint" class="muted" style="margin:-4px 0 8px"></div>
     <div id="history" class="evgrid"></div>
   </div>
 
@@ -438,7 +442,22 @@ function renderHistory() {
        </div>
        <div class="cap2">${actionIcon(e.action)} <b>${e.cat}</b><br>
          <span class="muted">${fmtWhen(e.ts)} · ${e.zone}${e.duration != null ? ' · ' + fmtDur(e.duration) : ''}</span></div>
+       <select class="fix" onchange="relabelEvent('${e.id}', this.value)">
+         <option value="">✎ correct…</option>
+         ${CATS.map(c => `<option value="${c}">${c}</option>`).join('')}
+       </select>
      </div>`).join('');
+}
+async function relabelEvent(id, cat) {
+  if (!cat) return;
+  const j = await (await fetch('api/events/relabel', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id, cat})})).json();
+  const e = EVENTS.find(x => x.id === id); if (e) e.cat = cat;
+  renderHistory();
+  const h = document.getElementById('histHint');
+  if (h) h.textContent = j.trained
+    ? '✓ Correction saved and added to training — open Training → Train to apply it.'
+    : '✓ Label updated (no training crop was available for this older event).';
 }
 function openLightbox(src) {
   document.getElementById('lightboxImg').src = src;
@@ -521,6 +540,38 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     def api_events_delete():
         event_id = (request.get_json(silent=True) or {}).get("id", "")
         return jsonify({"ok": bool(history.remove(event_id))})
+
+    @app.post("/api/events/relabel")
+    def api_events_relabel():
+        body = request.get_json(silent=True) or {}
+        event_id, cat = body.get("id", ""), body.get("cat", "")
+        if cat not in settings.cats:
+            return jsonify({"ok": False, "error": "unknown cat"}), 400
+        ev = history.get(event_id)
+        if not ev:
+            return jsonify({"ok": False, "error": "not found"}), 404
+        fields, trained = {"cat": cat}, False
+        crop = ev.get("crop")
+        if crop:
+            src = os.path.join(config.EVENT_CROP_DIR, secure_filename(crop))
+            if os.path.exists(src):
+                prev = ev.get("trained_path")  # undo a previous correction's copy
+                if prev and os.path.exists(prev):
+                    try:
+                        os.remove(prev)
+                    except OSError:
+                        pass
+                dst_dir = settings.dataset_dir_for(cat)
+                os.makedirs(dst_dir, exist_ok=True)
+                dst = os.path.join(dst_dir, f"evt_{ev['id']}.jpg")
+                try:
+                    shutil.copyfile(src, dst)
+                    fields["trained_path"] = dst
+                    trained = True
+                except OSError:
+                    pass
+        history.set_fields(event_id, **fields)
+        return jsonify({"ok": True, "trained": trained})
 
     @app.get("/api/snap/<path:name>")
     def api_snap(name):
