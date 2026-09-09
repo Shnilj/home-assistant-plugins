@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install numpy==1.26.4 opencv-python-headless==4.10.0.84 pytest pyyaml
+
+      - name: Byte-compile
+        run: python -m compileall catwatch/app
+
+      - name: Validate YAML (config + translations)
+        run: |
+          python - <<'PY'
+          import yaml, glob
+          for f in ["catwatch/config.yaml", "catwatch/build.yaml"] + glob.glob("catwatch/translations/*.yaml"):
+              try:
+                  yaml.safe_load(open(f))
+                  print("ok", f)
+              except FileNotFoundError:
+                  pass
+          PY
+
+      - name: Run tests
+        working-directory: catwatch
+        run: python -m pytest -q
