@@ -1,5 +1,5 @@
 name: CatWatch
-version: "0.11.0"
+version: "0.12.0"
 slug: catwatch
 description: >-
   Motion-triggered snapshots of the food bowls with local AI that recognises
@@ -34,6 +34,7 @@ watchdog: "http://[HOST]:[PORT:8099]/health"
 backup_exclude:
   - snapshots
   - event_crops
+  - timelapses
 options:
   rtsp_url: ""
   detection_fps: 3
@@ -52,6 +53,8 @@ options:
   recognition_margin: 0.6
   log_unknown_visits: true
   overdue_hours: 12
+  save_timelapses: true
+  timelapse_fps: 8
   cats:
     - Ellie
   classifier_confidence: 0.55
@@ -76,6 +79,8 @@ schema:
   recognition_margin: float(0,1)
   log_unknown_visits: bool
   overdue_hours: int(0,168)
+  save_timelapses: bool
+  timelapse_fps: int(1,30)
   cats:
     - str
   classifier_confidence: float(0,1)

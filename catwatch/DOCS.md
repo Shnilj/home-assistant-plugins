@@ -267,9 +267,25 @@ rebuild the model (your labelled crops are reused).
 
 ---
 
+## Timelapse clips
+
+When a visit is counted as a meal or drink, CatWatch saves a short, sped-up MP4
+of the whole visit. On that event in the History timeline, click **▶ clip** to
+play it back. Frames are sampled a couple of times a second through the visit and
+encoded in the background, so the clip covers arrival to departure without
+slowing the detector. Clips are deleted together with their event (and when you
+mark an event 🚫 not a cat), and are left out of Home Assistant backups.
+
+Turn the feature off with `save_timelapses: false`. `timelapse_fps` sets the
+playback frame rate — higher makes a faster, shorter clip. Encoding uses the
+`ffmpeg` binary bundled in the add-on; nothing extra to install.
+
+---
+
 ## Where data lives
 
 - Event snapshots (the History timeline): `/addon_configs/<slug>_catwatch/snapshots/`
+- Timelapse clips (per counted visit): `.../timelapses/` (MP4)
 - Event log: `.../events.json` (cat, action, zone, time, snapshot per event)
 - Training dataset (labelled crops): `.../dataset/<Cat name>/`
 - "Not a cat" examples (background class): `.../dataset/__none__/`

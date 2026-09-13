@@ -89,6 +89,17 @@ configuration:
     description: >-
       Zet de "achterstallig"-sensor van een kat aan als hij zo veel uur niet
       etend gezien is. Zet op 0 om uit te schakelen.
+  save_timelapses:
+    name: Timelapse-clips bewaren
+    description: >-
+      Bewaar bij een herkende maaltijd of drinkbeurt een korte, versnelde MP4 van
+      het hele bezoek, af te spelen vanuit de tijdlijn. Vereist ffmpeg (meegeleverd).
+  timelapse_fps:
+    name: Afspeelsnelheid timelapse (fps)
+    description: >-
+      Beelden per seconde waarmee de clip afspeelt. Hoger = sneller en korter
+      (beelden worden enkele keren per seconde bemonsterd, dus een hogere waarde
+      versnelt de timelapse).
   cats:
     name: Namen van de katten
     description: >-

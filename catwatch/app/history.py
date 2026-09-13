@@ -25,10 +25,12 @@ def _epoch(iso_ts: str) -> float:
 
 
 class EventLog:
-    def __init__(self, path: str, snap_dir: str, crop_dir: str = None, max_events: int = 1000):
+    def __init__(self, path: str, snap_dir: str, crop_dir: str = None,
+                 clip_dir: str = None, max_events: int = 1000):
         self.path = path
         self.snap_dir = snap_dir
         self.crop_dir = crop_dir
+        self.clip_dir = clip_dir
         self.max_events = max_events
         self._lock = threading.Lock()
         self._events = self._load()
@@ -63,9 +65,10 @@ class EventLog:
             log.warning("Could not write event log: %s", exc)
 
     def _delete_snapshot(self, event: dict) -> None:
-        # Remove the event's snapshot and its raw training crop. Any copy that
-        # was filed into the dataset by a correction is intentionally kept.
-        for base, key in ((self.snap_dir, "snapshot"), (self.crop_dir, "crop")):
+        # Remove the event's snapshot, its raw training crop and its timelapse.
+        # Any copy that was filed into the dataset by a correction is kept.
+        for base, key in ((self.snap_dir, "snapshot"), (self.crop_dir, "crop"),
+                          (self.clip_dir, "clip")):
             name = event.get(key)
             if base and name:
                 try:

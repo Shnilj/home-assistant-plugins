@@ -78,6 +78,10 @@ INDEX_HTML = """<!doctype html>
     border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 12px;
     line-height: 22px; text-align: center; cursor: pointer; display: none; }
   .ev:hover .del, .evimg:focus-within .del { display: block; }
+  .ev .play { position: absolute; bottom: 4px; left: 4px; height: 24px; min-width: 24px;
+    padding: 0 7px; border-radius: 999px; border: 0; background: rgba(0,0,0,.6); color: #fff;
+    font-size: 12px; line-height: 24px; cursor: pointer; }
+  .ev .play:hover { background: rgba(0,0,0,.8); }
   .ev .cap2 { font-size: 12px; margin-top: 4px; line-height: 1.35; }
   .ev select.fix { width: 132px; margin-top: 4px; font-size: 12px; padding: 3px; border-radius: 6px;
     background: transparent; color: inherit; border: 1px solid #8888; }
@@ -85,7 +89,7 @@ INDEX_HTML = """<!doctype html>
   #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex;
     align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 20px; }
   #lightbox[hidden] { display: none; }
-  #lightbox img { max-width: 96vw; max-height: 96vh; border-radius: 8px; }
+  #lightbox img, #lightbox video { max-width: 96vw; max-height: 96vh; border-radius: 8px; }
   .recg { margin: 14px 0; }
   .recg h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
   .confusion { width: auto; margin: 8px 0; border-collapse: collapse; }
@@ -196,7 +200,10 @@ INDEX_HTML = """<!doctype html>
   </div>
 </main>
 
-<div id="lightbox" hidden onclick="this.hidden = true"><img id="lightboxImg" src="" alt="enlarged"></div>
+<div id="lightbox" hidden onclick="closeLightbox(event)">
+  <img id="lightboxImg" src="" alt="enlarged">
+  <video id="lightboxVid" controls autoplay loop playsinline hidden></video>
+</div>
 
 <script>
 let CATS = [];
@@ -453,6 +460,7 @@ function renderHistory() {
             ? `<img src="api/snap/${e.snapshot}" loading="lazy" onclick="openLightbox('api/snap/${e.snapshot}')">`
             : '<div class="noimg"></div>'}
          <button class="del" title="Remove" onclick="deleteEvent('${e.id}')">✕</button>
+         ${e.clip ? `<button class="play" title="Play timelapse" onclick="openClip('api/clip/${e.clip}')">▶ clip</button>` : ''}
        </div>
        <div class="cap2">${actionIcon(e.action)} ${e.cat === 'unknown' ? '<span class="muted">❓ unknown</span>' : '<b>' + e.cat + '</b>'}<br>
          <span class="muted">${fmtWhen(e.ts)} · ${e.zone}${e.duration != null ? ' · ' + fmtDur(e.duration) : ''}</span></div>
@@ -483,8 +491,24 @@ async function relabelEvent(id, cat) {
     : '✓ Label updated (no training crop was available for this older event).';
 }
 function openLightbox(src) {
-  document.getElementById('lightboxImg').src = src;
+  const v = document.getElementById('lightboxVid');
+  try { v.pause(); } catch (_) {} v.removeAttribute('src'); v.hidden = true;
+  const img = document.getElementById('lightboxImg');
+  img.hidden = false; img.src = src;
   document.getElementById('lightbox').hidden = false;
+}
+function openClip(src) {
+  const img = document.getElementById('lightboxImg');
+  img.hidden = true; img.removeAttribute('src');
+  const v = document.getElementById('lightboxVid');
+  v.hidden = false; v.src = src; try { v.currentTime = 0; v.play(); } catch (_) {}
+  document.getElementById('lightbox').hidden = false;
+}
+function closeLightbox(e) {
+  if (e && e.target && e.target.id === 'lightboxVid') return;  // don't close on the video itself
+  const v = document.getElementById('lightboxVid');
+  try { v.pause(); } catch (_) {}
+  document.getElementById('lightbox').hidden = true;
 }
 async function deleteEvent(id) {
   await fetch('api/events/delete', {method:'POST', headers:{'Content-Type':'application/json'},
@@ -523,7 +547,7 @@ async function loadWeek() {
 
 frame.addEventListener('load', fit);
 window.addEventListener('resize', fit);
-window.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('lightbox').hidden = true; });
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 function refreshFrame() {
   const t = 'api/frame.jpg?t=' + Date.now();
   frame.src = t;  // zone editor
@@ -664,6 +688,11 @@ def create_app(state: SharedState, settings: config.Settings, model_holder: Mode
     @app.get("/api/snap/<path:name>")
     def api_snap(name):
         return send_from_directory(config.SNAP_DIR, secure_filename(name))
+
+    @app.get("/api/clip/<path:name>")
+    def api_clip(name):
+        return send_from_directory(config.TIMELAPSE_DIR, secure_filename(name),
+                                   mimetype="video/mp4")
 
     @app.get("/api/zones")
     def api_zones_get():

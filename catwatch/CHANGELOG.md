@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0
+
+- **Timelapse clips of meals.** When a meal or drink is recognised, CatWatch now
+  saves a short, sped-up MP4 of the whole visit — press **▶ clip** on that event
+  in the History timeline to watch it play back in the lightbox. Frames are
+  sampled through the visit and encoded to browser- and companion-app-playable
+  H.264 in the background, so the processing loop never stalls. Clips are pruned
+  with their event and excluded from Home Assistant backups. New options:
+  `save_timelapses` (on by default) and `timelapse_fps` (playback speed). Encoding
+  uses the bundled `ffmpeg`; if it's ever unavailable, clip capture is skipped and
+  everything else keeps working.
+
 ## 0.11.0
 
 - **Teach CatWatch "not a cat".** The recogniser can now learn a background class

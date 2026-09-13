@@ -17,7 +17,7 @@ from datetime import datetime
 
 import cv2
 
-from . import classifier, config, zones
+from . import classifier, config, timelapse, zones
 from .capture import RtspCamera
 from .history import EventLog
 from .motion import MotionDetector
@@ -112,8 +112,13 @@ class CatWatch:
         self._zones_reloaded = 0.0
         self._last_ui_frame = 0.0
         self._today = datetime.now().date()
+        # timelapse clips of counted visits (needs the ffmpeg binary)
+        self._timelapse_ok = self.s.save_timelapses and timelapse.ffmpeg_available()
+        if self.s.save_timelapses and not self._timelapse_ok:
+            log.warning("save_timelapses is on but ffmpeg was not found; clips disabled")
         # event history (rolling archive of counted events)
-        self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR, crop_dir=config.EVENT_CROP_DIR)
+        self.history = EventLog(config.EVENTS_PATH, config.SNAP_DIR,
+                                crop_dir=config.EVENT_CROP_DIR, clip_dir=config.TIMELAPSE_DIR)
         self.history.prune(self.s.history_hours * 3600)
         self._last_prune = time.time()
         # durable daily aggregate (weekly summaries, overdue, counters)
@@ -319,10 +324,13 @@ class CatWatch:
                 "counted_cat": None, "event_id": None, "votes": {},
                 "last_frame": None, "last_bbox": None,
                 "best_cov": -1.0, "best_frame": None, "best_bbox": None,
+                "clip": self._new_clip(),
             }
         else:
             I["last_seen"] = now
         I["last_frame"], I["last_bbox"] = frame, bbox
+        if I["clip"] is not None:
+            I["clip"].add(frame, now)
         # Snapshot = the frame where the cat most covers the bowl zone. This is a
         # geometric measure, so it works in the dark (unlike a confidence score,
         # which can rate an empty night frame higher than the real cat) and empty
@@ -362,6 +370,7 @@ class CatWatch:
             if I.get("event_id"):
                 self.history.set_duration(I["event_id"], duration)
                 self._finalize_snapshot(I, cat)
+                self._save_timelapse(I, cat)
         elif (I and self.s.log_unknown_visits and I.get("reached_dwell")
               and not I.get("counted")):
             # a real visit the recogniser couldn't attribute — log it so it can
@@ -436,6 +445,30 @@ class CatWatch:
         self.history.set_duration(eid, int(round(max(0.0, I["last_seen"] - I["since"]))))
         self.history.prune(self.s.history_hours * 3600)
         log.info("Unknown %s at %s logged for labelling", verb, zone_name)
+
+    def _new_clip(self):
+        return timelapse.ClipBuffer() if self._timelapse_ok else None
+
+    def _save_timelapse(self, I, cat):
+        """Encode the visit's buffered frames to a sped-up MP4 (off the loop
+        thread) and attach it to the event once written."""
+        clip, eid = I.get("clip"), I.get("event_id")
+        if clip is None or eid is None or len(clip) < 4:
+            return
+        frames, size = clip.frames, clip.size
+        action = I["action"]
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fname = f"{config.slugify(cat)}_{action}_{stamp}.mp4"
+        out = os.path.join(config.TIMELAPSE_DIR, fname)
+        fps = self.s.timelapse_fps
+
+        def _work():
+            if timelapse.encode_mp4(frames, size, out, fps):
+                self.history.set_fields(eid, clip=fname)
+            else:
+                log.warning("Timelapse not written for event %s", eid)
+
+        threading.Thread(target=_work, name="timelapse", daemon=True).start()
 
     def _handle_no_detection(self, now):
         """No cat is present this frame — either no qualifying motion, or the

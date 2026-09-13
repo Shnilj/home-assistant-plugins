@@ -31,6 +31,7 @@ EMBED_MODEL_PATH = os.environ.get(
 
 SNAP_DIR = os.path.join(CONFIG_DIR, "snapshots")
 EVENT_CROP_DIR = os.path.join(CONFIG_DIR, "event_crops")
+TIMELAPSE_DIR = os.path.join(CONFIG_DIR, "timelapses")
 DATASET_DIR = os.path.join(CONFIG_DIR, "dataset")
 UNLABELED_DIR = os.path.join(DATASET_DIR, "_unlabeled")
 
@@ -61,6 +62,8 @@ _DEFAULTS = {
     "recognition_margin": 0.6,
     "log_unknown_visits": True,
     "overdue_hours": 12,
+    "save_timelapses": True,
+    "timelapse_fps": 8,
     "cats": ["Ellie"],
     "classifier_confidence": 0.55,
     "save_captures": True,
@@ -102,6 +105,8 @@ class Settings:
     recognition_margin: float = 0.6
     log_unknown_visits: bool = True
     overdue_hours: int = 12
+    save_timelapses: bool = True
+    timelapse_fps: int = 8
     cats: list = field(default_factory=lambda: ["Ellie"])
     classifier_confidence: float = 0.55
     save_captures: bool = True
@@ -162,6 +167,8 @@ def load_settings() -> Settings:
         recognition_margin=float(opts.get("recognition_margin", 0.6)),
         log_unknown_visits=bool(opts.get("log_unknown_visits", True)),
         overdue_hours=_int("overdue_hours"),
+        save_timelapses=bool(opts.get("save_timelapses", True)),
+        timelapse_fps=max(1, _int("timelapse_fps")),
         cats=[str(c) for c in cats if str(c).strip()],
         classifier_confidence=float(opts.get("classifier_confidence", 0.55)),
         save_captures=bool(opts.get("save_captures", True)),
@@ -236,7 +243,8 @@ def save_zones(zones) -> None:
 
 
 def ensure_dirs(settings: Settings) -> None:
-    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, EVENT_CROP_DIR, DATASET_DIR, UNLABELED_DIR, NONE_DIR):
+    for d in (DATA_DIR, CONFIG_DIR, SNAP_DIR, EVENT_CROP_DIR, TIMELAPSE_DIR,
+              DATASET_DIR, UNLABELED_DIR, NONE_DIR):
         os.makedirs(d, exist_ok=True)
     for slug, name in settings.cat_slugs.items():
         os.makedirs(os.path.join(DATASET_DIR, name), exist_ok=True)

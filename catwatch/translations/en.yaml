@@ -86,6 +86,17 @@ configuration:
     description: >-
       Turn on a cat's "overdue" sensor if it hasn't been seen eating for this many
       hours. Set to 0 to disable.
+  save_timelapses:
+    name: Save timelapse clips
+    description: >-
+      When a meal or drink is recognised, save a short sped-up MP4 of the whole
+      visit, playable from the History timeline. Needs ffmpeg (bundled).
+  timelapse_fps:
+    name: Timelapse playback speed (fps)
+    description: >-
+      Frames per second the saved clip plays at. Higher = faster, shorter clip
+      (frames are sampled a couple of times a second, so a higher value speeds up
+      the timelapse).
   cats:
     name: Cat names
     description: >-

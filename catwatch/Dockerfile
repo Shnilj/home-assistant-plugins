@@ -20,6 +20,7 @@ RUN apt-get update \
         python3-pip \
         libgl1 \
         libglib2.0-0 \
+        ffmpeg \
         tzdata \
     && rm -rf /var/lib/apt/lists/*
 
