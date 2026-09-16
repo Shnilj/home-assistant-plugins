@@ -200,6 +200,17 @@ class Controller:
         return entry
 
     @guarded
+    def set_qty(self, item_id, qty, trip_id=None):
+        """Pin how many to bring, or pass a falsy qty to go back to automatic."""
+        trip = self._trip(trip_id)
+        entry = model.entry_for(trip, item_id)
+        if entry is None:
+            raise ItemNotFound(item_id)
+        entry["qty"] = max(int(qty), 1) if qty else None
+        self._save()
+        return entry
+
+    @guarded
     def remove(self, item_id, trip_id=None):
         trip = self._trip(trip_id)
         model.remove_item(trip, item_id)

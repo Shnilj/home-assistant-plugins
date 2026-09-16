@@ -42,6 +42,15 @@ def unique_id(base, taken):
 # validation / normalisation
 # --------------------------------------------------------------------------
 
+def _positive(value, cast=int):
+    """A number, or None. Zero and nonsense both mean "not set"."""
+    try:
+        number = cast(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
 def _clean_tags(value):
     if isinstance(value, str):
         value = value.split(",")
@@ -62,7 +71,9 @@ def normalize_item(raw, taken_ids=()):
         "tags": _clean_tags(raw.get("tags")),
         "suggests": [slugify(s) for s in (raw.get("suggests") or []) if str(s).strip()],
         "always": bool(raw.get("always")),
-        "qty": raw.get("qty") or None,
+        "qty": _positive(raw.get("qty")),
+        "per_day": _positive(raw.get("per_day"), float),
+        "qty_max": _positive(raw.get("qty_max")),
         "notes": str(raw.get("notes") or "").strip(),
     }
 
@@ -99,7 +110,7 @@ def normalize_trip(raw, taken_ids=()):
             {
                 "item_id": item_id,
                 "state": state if state in ("todo", "packed", "skipped") else "todo",
-                "qty": entry.get("qty") or None,
+                "qty": _positive(entry.get("qty")),
                 "reasons": [r for r in entry.get("reasons") or [] if isinstance(r, dict)],
                 "added_at": entry.get("added_at")
                 or datetime.now().isoformat(timespec="seconds"),

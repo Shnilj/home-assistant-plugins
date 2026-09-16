@@ -10,6 +10,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -20,6 +22,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -30,6 +34,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -42,6 +48,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Out 17/09 19.06 Brussel-Zuid, back 25/09 16.00 Milano Porta Garibaldi."
     },
     {
@@ -55,6 +63,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -71,6 +81,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -83,6 +95,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Rental deposits usually need a credit card in the driver's name."
     },
     {
@@ -95,6 +109,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -108,6 +124,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Pisa, Lucca and Firenze centres are ZTL. Park outside and walk in."
     },
     {
@@ -120,6 +138,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Brunelleschi's dome is timed entry — book before the day."
     },
     {
@@ -130,6 +150,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -143,6 +165,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -157,6 +181,8 @@
       ],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -167,6 +193,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -183,6 +211,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -192,7 +222,9 @@
       "tags": [],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 2,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -203,6 +235,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Older Italian sockets are type L — a Belgian plug will not always fit."
     },
     {
@@ -218,6 +252,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -232,6 +268,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "No signal in the Apennine tunnels and not much in the Maremma."
     },
     {
@@ -247,6 +285,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -257,6 +297,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -267,6 +309,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -286,6 +330,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -297,7 +343,9 @@
         "camera_charger"
       ],
       "always": false,
-      "qty": null,
+      "qty": 2,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -308,6 +356,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -317,7 +367,9 @@
       "tags": [],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 2,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -331,6 +383,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -341,6 +395,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -351,6 +407,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Cuts the haze over the Val d'Orcia."
     },
     {
@@ -363,6 +421,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -373,6 +433,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -387,6 +449,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Montepulciano at golden hour, Vitaleta at dusk."
     },
     {
@@ -399,6 +463,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -411,6 +477,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -423,6 +491,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -435,6 +505,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -450,6 +522,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Small enough to keep in the bunk instead of digging through the case."
     },
     {
@@ -460,6 +534,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -472,6 +548,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -487,6 +565,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Departure is 19.06 — dinner happens on board."
     },
     {
@@ -502,6 +582,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -512,6 +594,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": 1.0,
+      "qty_max": 7,
       "notes": ""
     },
     {
@@ -522,6 +606,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": 1.0,
+      "qty_max": 10,
       "notes": ""
     },
     {
@@ -532,6 +618,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": 1.0,
+      "qty_max": 10,
       "notes": ""
     },
     {
@@ -542,6 +630,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": 0.35,
+      "qty_max": 4,
       "notes": ""
     },
     {
@@ -555,7 +645,9 @@
       ],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 2,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -568,7 +660,9 @@
       ],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 1,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -583,6 +677,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -594,7 +690,9 @@
       ],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 1,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -610,6 +708,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -620,6 +720,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -636,6 +738,8 @@
       ],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -646,6 +750,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -656,6 +762,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -666,6 +774,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -676,6 +786,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -690,6 +802,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -702,6 +816,8 @@
       ],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -718,6 +834,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -731,6 +849,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -741,6 +861,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -758,6 +880,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -772,6 +896,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Pine woods and a lake full of frogs."
     },
     {
@@ -784,6 +910,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -796,6 +924,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -812,6 +942,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -822,6 +954,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": 0.5,
+      "qty_max": 3,
       "notes": ""
     },
     {
@@ -841,6 +975,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -856,6 +992,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -871,6 +1009,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -889,7 +1029,9 @@
         "sunscreen"
       ],
       "always": false,
-      "qty": null,
+      "qty": 2,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Needed the same day the car is collected — keep it reachable, not buried."
     },
     {
@@ -904,6 +1046,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -917,6 +1061,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -929,6 +1075,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Lago dell'Accesa has a stony entry."
     },
     {
@@ -941,6 +1089,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -955,6 +1105,8 @@
       ],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -967,6 +1119,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -980,6 +1134,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Five minutes of photos settles every damage argument later."
     },
     {
@@ -990,6 +1146,8 @@
       "suggests": [],
       "always": true,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -999,7 +1157,9 @@
       "tags": [],
       "suggests": [],
       "always": false,
-      "qty": null,
+      "qty": 3,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -1012,6 +1172,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": "Pecorino and wine need somewhere to live."
     },
     {
@@ -1024,6 +1186,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     },
     {
@@ -1037,6 +1201,8 @@
       "suggests": [],
       "always": false,
       "qty": null,
+      "per_day": null,
+      "qty_max": null,
       "notes": ""
     }
   ],

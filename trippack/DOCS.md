@@ -37,8 +37,8 @@ add-on notices the change and reloads without a restart.
 
 ## How the pieces fit
 
-**Items** have a name, a category, tags, a "goes with" list, and an optional
-*always* flag.
+**Items** have a name, a category, tags, a "goes with" list, an optional
+*always* flag, and optionally a quantity.
 
 - **Tags** describe the situation an item is for: `hiking`, `swimming`,
   `night_train`, `driving`, `photography`. They are how the itinerary finds it.
@@ -46,6 +46,15 @@ add-on notices the change and reloads without a restart.
   time: camera → batteries → charger.
 - **Always** means it is offered for every trip regardless of tags: passport,
   toothbrush, chargers.
+- **How many** is either a fixed number, or *per day* with an optional cap.
+  Per day scales with the itinerary: one T-shirt per day capped at seven is 7
+  shirts for ten days and 4 for four days. The cap is the point where you do a
+  wash instead of packing more. Leave all three empty for the things you only
+  ever bring one of.
+
+On the list, a counted item shows its number with − and + beside it. Nudging it
+pins that number for this trip — it stops following the itinerary until you
+choose *Back to automatic* under the ⋯.
 
 **Days** have a date, a title, tags and notes. The tags do the work.
 

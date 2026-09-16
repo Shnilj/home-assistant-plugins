@@ -99,6 +99,15 @@ def create_app(controller):
             return jsonify({"error": str(err)}), 400
         return jsonify(entry)
 
+    @app.post("/api/pack/<item_id>/qty")
+    def api_pack_qty(item_id):
+        body = request.get_json(silent=True) or {}
+        try:
+            entry = controller.set_qty(item_id, body.get("qty"), body.get("trip"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "qty must be a whole number"}), 400
+        return jsonify(entry)
+
     @app.delete("/api/pack/<item_id>")
     def api_pack_remove(item_id):
         controller.remove(item_id, request.args.get("trip"))

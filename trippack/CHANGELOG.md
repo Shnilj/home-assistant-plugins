@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 — 2026-09-16
+
+**How many to bring.** An item can now carry a number, and the number can work
+itself out from the length of the trip.
+
+- An item has *per day* and *at most*, or a plain fixed number. T-shirts at one
+  per day capped at seven come out at 7 for the ten-day Toscane trip and 4 for
+  a long weekend; underwear at one per day with a cap of ten comes out at 10.
+- The number sits on the row with − and + beside it. Nudging it pins your
+  choice for that trip; *Back to automatic*, under the ⋯, hands it back to the
+  trip length. A pinned number is shown in bold, an automatic one quietly.
+- Items with no number are unchanged — one toothbrush is one toothbrush.
+- Set the numbers per item under **Items**. The starter catalogue ships with
+  sensible ones for clothes, cables and batteries.
+- New `POST /api/pack/<item>/qty`; `qty: null` goes back to automatic.
+
+Fixed along the way: number inputs were missing from the stylesheet's input
+list and overflowed the item editor, and a sheet heading rule targeted a class
+that does not exist.
+
 ## 0.2.0 — 2026-09-16
 
 The panel now looks like part of Home Assistant instead of a website inside it.

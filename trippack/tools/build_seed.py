@@ -204,6 +204,26 @@ DAYS = [
 ]
 
 
+# How many to bring. "per_day" scales with the length of the trip; "max" is
+# the point where you do a wash instead of packing more; a plain "qty" is a
+# fixed number. Anything not listed here is simply not counted.
+QUANTITIES = {
+    "tshirts": {"per_day": 1, "qty_max": 7},
+    "underwear": {"per_day": 1, "qty_max": 10},
+    "socks": {"per_day": 1, "qty_max": 10},
+    "trousers": {"per_day": 0.35, "qty_max": 4},
+    "shorts": {"qty": 2},
+    "swimwear": {"qty": 2},
+    "light_jumper": {"qty": 1},
+    "nice_outfit": {"qty": 1},
+    "hiking_socks": {"per_day": 0.5, "qty_max": 3},
+    "packing_cubes": {"qty": 3},
+    "sd_cards": {"qty": 2},
+    "camera_batteries": {"qty": 2},
+    "usb_cables": {"qty": 2},
+}
+
+
 def build():
     items = [
         {
@@ -217,6 +237,8 @@ def build():
         }
         for item_id, name, category, tags, suggests, always, notes in ITEMS
     ]
+    for item in items:
+        item.update(QUANTITIES.get(item["id"], {}))
     trip = {
         "id": "toscane_2026",
         "name": "Toscane 2026",

@@ -5,15 +5,17 @@ dicts so it can be unit-tested without a Supervisor, a broker or a disk.
 
 Data shapes
 -----------
-item    {id, name, category, tags[], suggests[], always, qty, notes}
+item    {id, name, category, tags[], suggests[], always, qty, per_day,
+         qty_max, notes}
 day     {date, title, tags[], notes}
-entry   {item_id, state, qty, reasons[], added_at}
+entry   {item_id, state, qty, reasons[], added_at}   qty None = automatic
 reason  {kind: manual|essential|suggested_by|day, ...}
 trip    {id, name, start, end, days[], packing[], dismissed[]}
 """
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 
 STATES = ("todo", "packed", "skipped")
@@ -58,6 +60,52 @@ def trip_tags(trip):
             if tag not in seen:
                 seen.append(tag)
     return seen
+
+
+# --------------------------------------------------------------------------
+# how many to bring
+# --------------------------------------------------------------------------
+
+def trip_length(trip):
+    """Days the trip runs. The itinerary decides; the dates are the fallback."""
+    days = trip.get("days") or []
+    if days:
+        return len(days)
+    try:
+        first = datetime.strptime(trip.get("start"), "%Y-%m-%d")
+        last = datetime.strptime(trip.get("end"), "%Y-%m-%d")
+        return max((last - first).days + 1, 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def suggested_qty(item, days):
+    """What an item works out at for a trip of `days` days.
+
+    `per_day` scales with the trip, `qty_max` is the point where you do
+    laundry instead of packing more, and a plain `qty` is a fixed number.
+    None means the item is not counted at all — one toothbrush is one
+    toothbrush however long you are away.
+    """
+    per_day = item.get("per_day")
+    if per_day:
+        count = int(math.ceil(float(per_day) * max(int(days), 1)))
+    elif item.get("qty"):
+        count = int(item["qty"])
+    else:
+        return None
+    ceiling = item.get("qty_max")
+    if ceiling:
+        count = min(count, int(ceiling))
+    return max(count, 1)
+
+
+def entry_qty(item, trip, entry):
+    """(how many, pinned). A number on the entry beats the computed one."""
+    chosen = (entry or {}).get("qty")
+    if chosen:
+        return int(chosen), True
+    return suggested_qty(item or {}, trip_length(trip)), False
 
 
 # --------------------------------------------------------------------------
@@ -351,6 +399,7 @@ def packing_view(catalog, trip):
     rows = []
     for entry in trip.get("packing") or []:
         item = items_by_id.get(entry.get("item_id"), {})
+        count, pinned = entry_qty(item, trip, entry)
         rows.append(
             {
                 "item_id": entry.get("item_id"),
@@ -359,7 +408,8 @@ def packing_view(catalog, trip):
                 "tags": tags_of(item),
                 "notes": item.get("notes") or "",
                 "state": entry.get("state") or "todo",
-                "qty": entry.get("qty") or item.get("qty"),
+                "qty": count,
+                "qty_auto": count is not None and not pinned,
                 "missing": entry.get("item_id") not in items_by_id,
                 "hint": row_hint(entry.get("reasons"), items_by_id),
                 "why": [

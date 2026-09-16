@@ -107,7 +107,8 @@ main { max-width: 720px; margin: 0 auto; padding: 8px; }
 .card h2 { font-size: 16px; margin-bottom: 8px; }
 
 label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-input[type="text"], input[type="date"], input[type="search"], textarea {
+input[type="text"], input[type="date"], input[type="search"],
+input[type="number"], textarea {
   display: block;
   width: 100%;
   min-height: 48px;
@@ -125,6 +126,12 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 textarea { min-height: 76px; resize: vertical; }
 .two { display: flex; gap: 8px; }
 .two label { flex: 1; }
+.three { display: flex; gap: 8px; }
+.three label { flex: 1; min-width: 0; }
+.three input { padding-left: 12px; padding-right: 8px; }
+.three input::-webkit-outer-spin-button,
+.three input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.three input { -moz-appearance: textfield; }
 
 /* ------------------------------------------------------------ buttons */
 
@@ -253,9 +260,37 @@ textarea { min-height: 76px; resize: vertical; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* how many to bring */
+.qty {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.qty .step {
+  width: 34px;
+  height: 34px;
+  color: var(--accent);
+  font-size: 17px;
+  line-height: 1;
+}
+.qty .step:active { background: var(--line); }
+.qty-value {
+  min-width: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* A computed number is stated more quietly than one you chose yourself. */
+.qty.is-auto .qty-value { font-weight: 400; color: var(--muted); }
+.is-packed .qty { opacity: 0.55; }
+
 .more {
   flex: 0 0 auto;
-  width: var(--tap);
+  width: 36px;
   height: var(--tap);
   color: var(--muted);
   font-size: 18px;
@@ -409,7 +444,13 @@ textarea { min-height: 76px; resize: vertical; }
   margin-bottom: 8px;
 }
 .sheet-head h2 { font-size: 18px; }
-.sheet-body h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+#sheet-body h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-top: 16px;
+}
 .why-list { margin: 4px 0 12px; padding-left: 20px; color: var(--muted); font-size: 13px; }
 .sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 

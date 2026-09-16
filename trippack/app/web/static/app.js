@@ -143,20 +143,57 @@
     var main = el("button", "row-main");
     main.appendChild(el("span", "box"));
     var label = el("span", "label");
-    label.appendChild(el("span", "name", row.name + (row.qty ? " (" + row.qty + ")" : "")));
+    label.appendChild(el("span", "name", row.name));
     main.appendChild(label);
-    if (row.hint) { main.appendChild(el("span", "hint", row.hint)); }
+    // A counted item shows its number instead of the why-hint: on a phone
+    // there is room for one of them, and the number is the one you act on.
+    if (row.qty === null || row.qty === undefined) {
+      if (row.hint) { main.appendChild(el("span", "hint", row.hint)); }
+    }
     main.addEventListener("click", function () {
       api("api/pack/" + row.item_id + "/state", { method: "POST", body: {} })
         .then(refresh).catch(function (err) { toast(err.message); });
     });
     wrap.appendChild(main);
 
+    if (row.qty !== null && row.qty !== undefined) {
+      wrap.appendChild(stepper(row));
+    }
+
     var more = el("button", "more", "\u22EF");
     more.setAttribute("aria-label", "Details for " + row.name);
     more.addEventListener("click", function () { openItemSheet(row); });
     wrap.appendChild(more);
     return wrap;
+  }
+
+  function setQty(row, next) {
+    if (next < 1) { return; }
+    return api("api/pack/" + row.item_id + "/qty", {
+      method: "POST",
+      body: { qty: next }
+    }).then(refresh).catch(function (err) { toast(err.message); });
+  }
+
+  function stepper(row) {
+    var group = el("div", "qty" + (row.qty_auto ? " is-auto" : ""));
+    var less = el("button", "step", "\u2212");
+    less.setAttribute("aria-label", "One fewer " + row.name);
+    less.addEventListener("click", function () { setQty(row, row.qty - 1); });
+
+    var value = el("span", "qty-value", String(row.qty));
+    value.title = row.qty_auto
+      ? "Worked out from the length of the trip"
+      : "You chose this number";
+
+    var more = el("button", "step", "+");
+    more.setAttribute("aria-label", "One more " + row.name);
+    more.addEventListener("click", function () { setQty(row, row.qty + 1); });
+
+    group.appendChild(less);
+    group.appendChild(value);
+    group.appendChild(more);
+    return group;
   }
 
   // ---------------------------------------------------------------- add box
@@ -314,7 +351,23 @@
           "This item is no longer in the catalogue. Remove it or add it back under Items."));
       }
 
+      if (row.qty !== null && row.qty !== undefined) {
+        body.appendChild(el("h3", null, "How many"));
+        body.appendChild(el("p", "day-note", row.qty_auto
+          ? row.qty + " — worked out from the length of this trip."
+          : row.qty + " — you set this. It will not change if the trip does."));
+      }
+
       var actions = el("div", "sheet-actions");
+      if (row.qty && !row.qty_auto) {
+        var auto = el("button", "chip", "Back to automatic");
+        auto.addEventListener("click", function () {
+          api("api/pack/" + row.item_id + "/qty", { method: "POST", body: { qty: null } })
+            .then(function () { closeSheet(); return refresh(); })
+            .catch(function (err) { toast(err.message); });
+        });
+        actions.appendChild(auto);
+      }
       var states = [["todo", "Still to pack"], ["packed", "Packed"], ["skipped", "Leaving it"]];
       states.forEach(function (pair) {
         if (pair[0] === row.state) { return; }
@@ -473,6 +526,8 @@
         var grow = el("div", "grow");
         grow.appendChild(el("div", "name", item.name + (item.always ? " · always" : "")));
         var bits = [];
+        if (item.per_day) { bits.push(item.per_day + " per day" + (item.qty_max ? ", max " + item.qty_max : "")); }
+        else if (item.qty) { bits.push("\u00d7" + item.qty); }
         if (item.tags.length) { bits.push(item.tags.join(", ")); }
         if (item.suggests.length) { bits.push("brings " + item.suggests.length); }
         grow.appendChild(el("div", "meta", bits.join(" · ")));
@@ -496,6 +551,24 @@
     return input;
   }
 
+  function numberField(parent, labelText, value, step) {
+    var label = el("label", null, labelText);
+    var input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    if (step) { input.step = step; }
+    input.inputMode = step ? "decimal" : "numeric";
+    input.value = (value === null || value === undefined) ? "" : String(value);
+    label.appendChild(input);
+    parent.appendChild(label);
+    return input;
+  }
+
+  function numberOf(input) {
+    var value = parseFloat(input.value);
+    return isFinite(value) && value > 0 ? value : null;
+  }
+
   function textField(parent, labelText, value) {
     var label = el("label", null, labelText);
     var area = document.createElement("textarea");
@@ -511,6 +584,16 @@
       var category = field(body, "Category", "text", item ? item.category : "other");
       var tags = field(body, "Tags, comma separated", "text", item ? item.tags.join(", ") : "");
       var notes = textField(body, "Notes", item ? item.notes : "");
+
+      body.appendChild(el("h3", null, "How many to bring"));
+      body.appendChild(el("p", "day-note",
+        "Leave these empty for things you only ever bring one of. " +
+        "Per day scales with the trip; the cap is where you do a wash instead."));
+      var counts = el("div", "three");
+      var perDay = numberField(counts, "Per day", item ? item.per_day : null, "0.05");
+      var qtyMax = numberField(counts, "At most", item ? item.qty_max : null);
+      var qtyFixed = numberField(counts, "Or fixed", item ? item.qty : null);
+      body.appendChild(counts);
 
       var alwaysLabel = el("label", null, "");
       var always = document.createElement("input");
@@ -556,6 +639,9 @@
             tags: tags.value.split(","),
             notes: notes.value,
             always: always.checked,
+            per_day: numberOf(perDay),
+            qty_max: numberOf(qtyMax),
+            qty: numberOf(qtyFixed),
             suggests: suggests
           }
         }).then(function () { closeSheet(); return refresh(); })

@@ -146,3 +146,45 @@ def test_pull_takes_the_itinerary_and_the_essentials(client):
 
 def test_health(client):
     assert client.get("/health").get_json() == {"ok": True}
+
+
+# ---------------------------------------------------------------- quantities
+
+def test_qty_endpoint_pins_and_releases(client, controller):
+    client.post("/api/pack", json={"item_id": "camera"})
+
+    assert client.post("/api/pack/camera/qty", json={"qty": 4}).status_code == 200
+    row = next(r for r in client.get("/api/state").get_json()["active_trip"]["packing"]
+               if r["item_id"] == "camera")
+    assert (row["qty"], row["qty_auto"]) == (4, False)
+
+    client.post("/api/pack/camera/qty", json={"qty": None})
+    row = next(r for r in client.get("/api/state").get_json()["active_trip"]["packing"]
+               if r["item_id"] == "camera")
+    assert row["qty"] is None  # camera carries no per_day and no qty
+
+
+def test_qty_never_goes_below_one(controller):
+    controller.add("camera")
+    assert controller.set_qty("camera", 0)["qty"] is None
+    assert controller.set_qty("camera", -3)["qty"] == 1
+
+
+def test_qty_on_something_not_on_the_list_is_a_404(client):
+    assert client.post("/api/pack/camera/qty", json={"qty": 2}).status_code == 404
+
+
+def test_store_keeps_the_quantity_fields(controller):
+    saved = controller.save_item({
+        "name": "T-shirts", "category": "clothes",
+        "per_day": "1", "qty_max": "7", "qty": "0",
+    })
+    assert (saved["per_day"], saved["qty_max"], saved["qty"]) == (1.0, 7, None)
+
+
+def test_nonsense_quantities_are_dropped_rather_than_crashing(controller):
+    saved = controller.save_item({
+        "name": "Hat", "category": "clothes",
+        "per_day": "lots", "qty_max": "", "qty": None,
+    })
+    assert (saved["per_day"], saved["qty_max"], saved["qty"]) == (None, None, None)

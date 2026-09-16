@@ -279,3 +279,101 @@ def test_packing_view_carries_the_hint():
     model.add_item(trip, "batteries", {"kind": "suggested_by", "item_id": "camera"})
     row = model.packing_view(CATALOG, trip)[0]
     assert row["hint"] == "Camera"
+
+
+# ---------------------------------------------------------------- quantities
+
+COUNTED = [
+    {"id": "tshirts", "name": "T-shirts", "category": "clothes",
+     "per_day": 1, "qty_max": 7},
+    {"id": "underwear", "name": "Underwear", "category": "clothes", "per_day": 1},
+    {"id": "trousers", "name": "Trousers", "category": "clothes", "per_day": 0.35},
+    {"id": "swimwear", "name": "Swimwear", "category": "water", "qty": 2},
+    {"id": "toothbrush", "name": "Toothbrush", "category": "wash"},
+]
+
+
+def ten_days():
+    trip = copy.deepcopy(TRIP)
+    trip["days"] = [
+        {"date": "2026-09-%02d" % (17 + n), "title": "", "tags": [], "notes": ""}
+        for n in range(10)
+    ]
+    return trip
+
+
+def test_trip_length_counts_the_itinerary():
+    assert model.trip_length(ten_days()) == 10
+    assert model.trip_length(TRIP) == 3
+
+
+def test_trip_length_falls_back_to_the_dates():
+    assert model.trip_length(
+        {"start": "2026-09-17", "end": "2026-09-19", "days": []}
+    ) == 3
+
+
+def test_trip_length_of_something_shapeless_is_one_day():
+    assert model.trip_length({}) == 1
+
+
+def test_per_day_scales_with_the_trip():
+    items = model.index_items(COUNTED)
+    assert model.suggested_qty(items["underwear"], 10) == 10
+    assert model.suggested_qty(items["underwear"], 3) == 3
+
+
+def test_the_cap_is_where_you_do_a_wash():
+    items = model.index_items(COUNTED)
+    assert model.suggested_qty(items["tshirts"], 10) == 7
+    assert model.suggested_qty(items["tshirts"], 4) == 4
+
+
+def test_a_fraction_rounds_up():
+    items = model.index_items(COUNTED)
+    assert model.suggested_qty(items["trousers"], 10) == 4  # 3.5 -> 4
+
+
+def test_a_fixed_number_ignores_the_trip():
+    items = model.index_items(COUNTED)
+    assert model.suggested_qty(items["swimwear"], 3) == 2
+    assert model.suggested_qty(items["swimwear"], 30) == 2
+
+
+def test_an_uncounted_item_has_no_number():
+    items = model.index_items(COUNTED)
+    assert model.suggested_qty(items["toothbrush"], 10) is None
+
+
+def test_never_fewer_than_one():
+    assert model.suggested_qty({"per_day": 0.1}, 1) == 1
+
+
+def test_a_chosen_number_beats_the_computed_one():
+    trip = ten_days()
+    items = model.index_items(COUNTED)
+    model.add_item(trip, "tshirts")
+    entry = model.entry_for(trip, "tshirts")
+
+    assert model.entry_qty(items["tshirts"], trip, entry) == (7, False)
+    entry["qty"] = 3
+    assert model.entry_qty(items["tshirts"], trip, entry) == (3, True)
+
+
+def test_packing_view_carries_the_number_and_whether_it_is_automatic():
+    trip = ten_days()
+    model.add_item(trip, "tshirts")
+    model.add_item(trip, "toothbrush")
+    rows = {r["item_id"]: r for r in model.packing_view(COUNTED, trip)}
+
+    assert (rows["tshirts"]["qty"], rows["tshirts"]["qty_auto"]) == (7, True)
+    assert rows["toothbrush"]["qty"] is None
+    assert rows["toothbrush"]["qty_auto"] is False
+
+
+def test_a_longer_itinerary_moves_an_automatic_number():
+    trip = copy.deepcopy(TRIP)  # three days
+    model.add_item(trip, "underwear")
+    assert model.packing_view(COUNTED, trip)[0]["qty"] == 3
+    trip["days"] = ten_days()["days"]
+    assert model.packing_view(COUNTED, trip)[0]["qty"] == 10
