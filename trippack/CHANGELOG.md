@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2 — 2026-09-16
+
+- **Fix: the UI was unusable.** Nothing on the page could be clicked, because
+  `.sheet` sets `display: flex` and an author rule beats the browser's own
+  `[hidden] { display: none }` — so the modal overlay sat invisibly over the
+  whole page from the moment it loaded. For the same reason all four tabs
+  rendered stacked on top of each other and the tab bar did nothing. One
+  `[hidden] { display: none !important; }` fixes all of it.
+- Added an inline favicon, so the log stops reporting a 404 for `/favicon.ico`.
+
 ## 0.1.1 — 2026-09-16
 
 - **Fix: hand edits to `trippack.json` are no longer overwritten.** Only the

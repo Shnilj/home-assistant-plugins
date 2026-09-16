@@ -33,6 +33,13 @@
 
 * { box-sizing: border-box; }
 
+/* The page hides and shows almost everything with the `hidden` attribute, and
+   several rules below set an explicit `display`. An author rule always beats
+   the browser's own `[hidden] { display: none }`, so without this line the
+   sheet overlay sits permanently over the page (nothing is clickable) and all
+   four tabs render at once. Keep it above the layout rules, !important and all. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--page);
