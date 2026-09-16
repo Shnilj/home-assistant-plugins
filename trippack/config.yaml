@@ -1,6 +1,6 @@
 ---
 name: TripPack
-version: "0.3.0"
+version: "0.3.1"
 slug: trippack
 description: >-
   Packing lists that build themselves from your itinerary, and ask about the

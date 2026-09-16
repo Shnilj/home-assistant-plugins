@@ -150,6 +150,7 @@ textarea { min-height: 76px; resize: vertical; }
 .chip { border: 1px solid var(--line); color: var(--text); background: var(--card); }
 .text-button { color: var(--accent); padding: 0 8px; }
 .chip.danger, .text-button.danger { color: var(--danger); }
+.chip.is-on { border-color: var(--accent); color: var(--accent); }
 
 /* ------------------------------------------------------------ add box */
 
@@ -317,6 +318,8 @@ textarea { min-height: 76px; resize: vertical; }
 .day-card h3 { font-size: 16px; margin: 2px 0; }
 .day-note { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
 .tagrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+/* A picker row is followed by the next field, so it carries its own gap. */
+.tagrow.picker { margin-bottom: 14px; }
 .tag {
   font-size: 11px;
   color: var(--muted);

@@ -551,6 +551,49 @@
     return input;
   }
 
+  function categoryField(parent, current) {
+    var input = field(parent, "Category", "text", current || "");
+    input.placeholder = "or type a new one";
+    var known = (state.data && state.data.categories) || [];
+    if (!known.length) { return input; }
+
+    // A datalist for anyone with a keyboard...
+    input.setAttribute("list", "category-options");
+    var options = document.createElement("datalist");
+    options.id = "category-options";
+    known.forEach(function (name) {
+      var option = document.createElement("option");
+      option.value = name;
+      options.appendChild(option);
+    });
+    parent.appendChild(options);
+
+    // ...and chips, because a datalist is a poor thing to tap at on a phone.
+    var row = el("div", "tagrow picker");
+    var chips = {};
+    known.forEach(function (name) {
+      var chip = el("button", "chip", name);
+      chip.type = "button";
+      chips[name] = chip;
+      chip.addEventListener("click", function () {
+        input.value = name;
+        mark();
+      });
+      row.appendChild(chip);
+    });
+    parent.appendChild(row);
+
+    function mark() {
+      var chosen = input.value.trim().toLowerCase();
+      known.forEach(function (name) {
+        chips[name].classList.toggle("is-on", name.toLowerCase() === chosen);
+      });
+    }
+    input.addEventListener("input", mark);
+    mark();
+    return input;
+  }
+
   function numberField(parent, labelText, value, step) {
     var label = el("label", null, labelText);
     var input = document.createElement("input");
@@ -581,7 +624,7 @@
   function openItemEditor(item) {
     openSheet(item ? item.name : "New item", function (body) {
       var name = field(body, "Name", "text", item ? item.name : "");
-      var category = field(body, "Category", "text", item ? item.category : "other");
+      var category = categoryField(body, item ? item.category : "");
       var tags = field(body, "Tags, comma separated", "text", item ? item.tags.join(", ") : "");
       var notes = textField(body, "Notes", item ? item.notes : "");
 
@@ -613,13 +656,13 @@
       catalog().forEach(function (other) {
         if (item && other.id === item.id) { return; }
         var chip = el("button", "chip", other.name);
-        var on = item && item.suggests.indexOf(other.id) >= 0;
+        chip.type = "button";
+        var on = !!(item && item.suggests.indexOf(other.id) >= 0);
         picks[other.id] = on;
-        if (on) { chip.style.borderColor = "var(--accent)"; chip.style.color = "var(--accent)"; }
+        chip.classList.toggle("is-on", on);
         chip.addEventListener("click", function () {
           picks[other.id] = !picks[other.id];
-          chip.style.borderColor = picks[other.id] ? "var(--accent)" : "var(--line)";
-          chip.style.color = picks[other.id] ? "var(--accent)" : "var(--text)";
+          chip.classList.toggle("is-on", picks[other.id]);
         });
         box.appendChild(chip);
       });
@@ -635,7 +678,7 @@
           body: {
             id: item ? item.id : null,
             name: name.value,
-            category: category.value,
+            category: category.value.trim() || "other",
             tags: tags.value.split(","),
             notes: notes.value,
             always: always.checked,

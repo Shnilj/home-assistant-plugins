@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1 — 2026-09-16
+
+- **Category is no longer something you have to remember.** The item editor
+  shows the categories already in use as chips — tap one — with the current
+  one marked. Typing still works for a new category, and a keyboard gets the
+  same list as native autocomplete. Leaving it blank lands the item in
+  *other* rather than in a category called nothing.
+- The "goes with" chips use the same selected style, which is now one rule
+  rather than inline colours set in four places.
+
 ## 0.3.0 — 2026-09-16
 
 **How many to bring.** An item can now carry a number, and the number can work
