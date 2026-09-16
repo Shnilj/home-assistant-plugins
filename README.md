@@ -22,6 +22,14 @@ Exposes Home Assistant entities and **Take / Skip / Undo** buttons (one device
 per subject, plus a hub) so you can build reminders and notifications, with an
 optional inventory / low-stock warning and a phone-friendly web UI.
 
+### 🧳 [TripPack](./trippack)
+
+Packing lists that build themselves from your itinerary. Tag a day as `hiking`
+and everything tagged the same way is offered for the trip; add the camera and
+it asks about the spare batteries, the lens and the bag — one step at a time.
+Every item keeps the trail of **why** it is on the list. Phone-friendly web UI
+in the sidebar; everything lives in one editable JSON file.
+
 ## Installing this repository
 
 1. In Home Assistant go to **Settings → Add-ons → Add-on Store**.

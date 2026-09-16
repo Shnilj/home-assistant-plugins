@@ -26,6 +26,11 @@ open the sidebar panel.
 | `log_level` | `info` | `debug` if something misbehaves. |
 | `data_file` | `/config/trippack.json` | Where everything is stored. |
 
+`/config` is TripPack's own folder, not Home Assistant's. On your machine it is
+`/addon_configs/<slug>_trippack/trippack.json` — reachable over Samba or with
+the File editor add-on, and included in your backups. TripPack has no access to
+the rest of your Home Assistant configuration.
+
 Everything is in that one file: catalogue, trips, itineraries, packing state.
 It is plain JSON, it is in your backups, and you can edit it by hand — the
 add-on notices the change and reloads without a restart.
@@ -103,9 +108,13 @@ trip, add its days, tag them, and the same items come back with no re-typing.
 }
 ```
 
+Edits are picked up on the next thing you do in the UI — no restart, and a tap
+on the page will not write an older copy back over what you just typed.
+
 A bad file is never silently overwritten: TripPack copies it aside as
 `trippack.json.broken-<timestamp>` and refuses to start rather than losing your
-list.
+list. If it goes bad while running, the last good copy stays on screen and the
+add-on log says why.
 
 ## MQTT and notifications
 

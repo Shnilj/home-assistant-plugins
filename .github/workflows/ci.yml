@@ -5,7 +5,8 @@ on:
   pull_request:
 
 jobs:
-  test:
+  # Cheap checks that apply to every add-on in the repository.
+  manifests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,20 +15,66 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install numpy==1.26.4 opencv-python-headless==4.10.0.84 pytest pyyaml
+      - run: pip install pyyaml
 
-      - name: Byte-compile
-        run: python -m compileall catwatch/app
-
-      - name: Validate YAML (config + translations)
+      - name: Validate every add-on manifest and its translations
         run: |
           python - <<'PY'
-          import yaml, glob
-          for f in ["catwatch/config.yaml"] + glob.glob("catwatch/translations/*.yaml"):
-              yaml.safe_load(open(f)); print("ok", f)
+          import glob, sys, yaml
+
+          ok = True
+          def fail(config, message):
+              global ok
+              print("::error file=%s::%s" % (config, message))
+              ok = False
+
+          for config in sorted(glob.glob("*/config.yaml")):
+              addon = config.split("/")[0]
+              data = yaml.safe_load(open(config))
+              for key in ("name", "version", "slug", "arch"):
+                  if key not in data:
+                      fail(config, "missing %s" % key)
+              if data.get("slug") != addon:
+                  fail(config, "slug %r does not match folder %r" % (data.get("slug"), addon))
+              options = data.get("options") or {}
+              schema = data.get("schema") or {}
+              for key in options:
+                  if key not in schema:
+                      fail(config, "option %r has no schema entry" % key)
+              for key in schema:
+                  if key not in options:
+                      fail(config, "schema %r has no default in options" % key)
+              for path in sorted(glob.glob("%s/translations/*.yaml" % addon)):
+                  yaml.safe_load(open(path))
+              print("ok", addon, data.get("version"))
+
+          sys.exit(0 if ok else 1)
           PY
 
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - addon: catwatch
+            deps: numpy==1.26.4 opencv-python-headless==4.10.0.84
+          - addon: trippack
+            deps: flask==3.0.3 waitress==3.0.0
+    name: test (${{ matrix.addon }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pytest ${{ matrix.deps }}
+
+      - name: Byte-compile
+        run: python -m compileall -q ${{ matrix.addon }}/app
+
       - name: Run tests
-        working-directory: catwatch
+        working-directory: ${{ matrix.addon }}
         run: python -m pytest -q

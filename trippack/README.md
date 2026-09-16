@@ -10,7 +10,7 @@ Packing lists that follow your itinerary. A Home Assistant add-on, sibling of
 
 See `DOCS.md` for the full story. `tools/build_seed.py` regenerates
 `app/seed/default.json`, which is what a fresh install writes to
-`/config/trippack.json`.
+`/config/trippack.json` inside the container.
 
 ## Layout
 
@@ -26,18 +26,22 @@ trippack/
 │   ├── main.py            entry point
 │   ├── seed/default.json  starter catalogue + Toscane 2026
 │   └── web/               Flask API and the single-page UI
-├── tests/                 pytest, no disk or HTTP needed
+├── tests/                 pytest: the engine, the controller and the API
 └── tools/build_seed.py    regenerate the seed
 ```
 
 ## Tests
 
 ```
-python3 -m pytest trippack/tests -q
+cd trippack && python3 -m pytest -q
 ```
+
+Needs `pytest` and `flask`. CI runs this on every push, alongside a manifest
+check over every add-on in the repository.
 
 ## Status
 
-v0.1.0, authored but never built on the real Supervisor. Web UI only — no MQTT
-entities yet; `controller.dirty` and `controller.summary()` are the hooks for
-when they arrive.
+v0.1.1, not yet built on the real Supervisor — that is the next step, and it
+is the only thing a local test run cannot tell you (AppArmor, the base image,
+s6, ingress). Web UI only, no MQTT entities yet; `controller.dirty` and
+`controller.summary()` are the hooks for when they arrive.

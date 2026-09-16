@@ -12,9 +12,15 @@ import os
 from flask import Flask, jsonify, request, send_from_directory
 
 from .. import model, store
-from ..controller import TripNotFound
+from ..controller import ItemNotFound, TripNotFound
 
 LOG = logging.getLogger("trippack.web")
+
+
+def _key(err):
+    """KeyError stringifies to its repr, which reads badly in an API error."""
+    return err.args[0] if err.args else "?"
+
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
@@ -176,11 +182,13 @@ def create_app(controller):
 
     @app.errorhandler(TripNotFound)
     def _no_trip(err):
-        return jsonify({"error": "No such trip: %s" % err}), 404
+        return jsonify({"error": "No such trip: %s" % _key(err)}), 404
 
-    @app.errorhandler(KeyError)
-    def _no_key(err):
-        return jsonify({"error": "Unknown id: %s" % err}), 404
+    @app.errorhandler(ItemNotFound)
+    def _no_item(err):
+        # Deliberately narrow: a stray KeyError from a bug should still be a
+        # 500 with a traceback in the log, not a quiet 404.
+        return jsonify({"error": "No such item: %s" % _key(err)}), 404
 
     return app
 

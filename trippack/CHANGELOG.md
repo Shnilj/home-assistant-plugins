@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.1 — 2026-09-16
+
+- **Fix: hand edits to `trippack.json` are no longer overwritten.** Only the
+  read paths reloaded the file, so editing it while the page was open and then
+  tapping anything wrote the stale in-memory copy back over the edit. Every
+  public method now reloads first.
+- Moved from `config:rw` to `addon_config:rw`. TripPack gets its own folder
+  under `/addon_configs/` instead of write access to the whole Home Assistant
+  configuration directory. **The data file moves** — copy your old
+  `/config/trippack.json` across if you had already started a list.
+- An unknown trip id is a 404 instead of a blank page, and only a genuinely
+  unknown item id produces a 404 — other `KeyError`s are bugs and now say so.
+- Dependencies live in `requirements.txt`; added `icon.png` and `logo.png`;
+  removed two stale duplicate files from the add-on root.
+
 ## 0.1.0 — 2026-09-16
 
 First version.
