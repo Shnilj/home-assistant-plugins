@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 — 2026-09-16
+
+The panel now looks like part of Home Assistant instead of a website inside it.
+
+- **It follows your Home Assistant theme.** The ingress frame is served from
+  Home Assistant's own origin, so the page reads the resolved theme variables
+  off the parent document — custom themes included — and falls back to Home
+  Assistant's defaults if that is ever not possible.
+- **No more TripPack header.** Home Assistant already draws one above the
+  frame; the old title bar was a second header stacked on it. The trip name,
+  progress and count now live in one 44px strip.
+- **Tabs moved to the bottom**, where a thumb reaches them, with icons.
+- **Suggestions arrive in a sheet over the list**, one at a time, instead of a
+  block that pushed the list off the screen — with *Add all* for when you do
+  not want to answer sixty questions.
+- **Denser rows.** The reason a thing is on the list is a few words on the
+  right ("Camera", "Always", "19 Sep +1") rather than a truncated sentence
+  under every row; the full trail is still behind the ⋯.
+
 ## 0.1.2 — 2026-09-16
 
 - **Fix: the UI was unusable.** Nothing on the page could be clicked, because

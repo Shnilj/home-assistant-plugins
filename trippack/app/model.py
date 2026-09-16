@@ -117,6 +117,42 @@ def explain(trip, item_id, catalog=None):
     return [reason_text(r, items_by_id, days_by_date) for r in entry.get("reasons") or []]
 
 
+def short_date(value):
+    """"19 Sep" — the row has no room for the day name."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d %b").lstrip("0")
+    except (TypeError, ValueError):
+        return ""
+
+
+def reason_short(reason, items_by_id=None):
+    """A few words for the list row, where the full sentence would not fit.
+
+    Empty for a manual add: "you put it there" is not worth a line.
+    """
+    items_by_id = items_by_id or {}
+    kind = reason.get("kind")
+    if kind == "essential":
+        return "Always"
+    if kind == "suggested_by":
+        other = items_by_id.get(reason.get("item_id"), {})
+        return other.get("name") or reason.get("item_id") or ""
+    if kind == "day":
+        return short_date(reason.get("date"))
+    return ""
+
+
+def row_hint(reasons, items_by_id=None):
+    """The one short reason a row shows, with a count of the rest."""
+    reasons = reasons or []
+    for reason in reasons:
+        hint = reason_short(reason, items_by_id)
+        if hint:
+            extra = len(reasons) - 1
+            return "%s +%d" % (hint, extra) if extra else hint
+    return ""
+
+
 def pretty_date(value):
     try:
         return datetime.strptime(value, "%Y-%m-%d").strftime("%a %d %b")
@@ -325,6 +361,7 @@ def packing_view(catalog, trip):
                 "state": entry.get("state") or "todo",
                 "qty": entry.get("qty") or item.get("qty"),
                 "missing": entry.get("item_id") not in items_by_id,
+                "hint": row_hint(entry.get("reasons"), items_by_id),
                 "why": [
                     reason_text(r, items_by_id, days_by_date)
                     for r in entry.get("reasons") or []

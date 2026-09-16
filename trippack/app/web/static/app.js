@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var state = { data: null, tray: [], showSkipped: false, filter: "" };
+  var state = { data: null, tray: [], trayTitle: null, trayPull: null, showSkipped: false, filter: "" };
   var $ = function (id) { return document.getElementById(id); };
 
   // ---------------------------------------------------------------- api
@@ -67,23 +67,16 @@
     var active = trip();
     if (!active) {
       $("trip-name").textContent = "TripPack";
-      $("trip-dates").textContent = "";
-      $("progress-text").textContent = "No trip yet — make one under Trips.";
-      $("route-done").style.width = "0%";
-      $("route-marker").style.left = "0%";
+      $("progress-text").textContent = "No trip";
+      $("rail-done").style.width = "0%";
       return;
     }
     var p = active.progress;
     $("trip-name").textContent = active.name;
-    $("trip-dates").textContent = active.start
-      ? humanDate(active.start) + " to " + humanDate(active.end)
-      : "";
-    $("route-done").style.width = p.pct + "%";
-    $("route-marker").style.left = p.pct + "%";
+    $("rail-done").style.width = p.pct + "%";
     $("progress-text").textContent = p.total
-      ? p.packed + " of " + (p.packed + p.todo) + " packed" +
-        (p.skipped ? ", " + p.skipped + " left behind" : "")
-      : "Nothing on the list yet.";
+      ? p.packed + "/" + (p.packed + p.todo)
+      : "empty";
   }
 
   // ---------------------------------------------------------------- pack view
@@ -98,8 +91,8 @@
     if (active.waiting > 0 && !state.tray.length) {
       waiting.hidden = false;
       $("waiting-text").textContent = active.waiting === 1
-        ? "One item your itinerary suggests is not on the list."
-        : active.waiting + " items your itinerary suggests are not on the list.";
+        ? "One item your itinerary suggests"
+        : active.waiting + " items your itinerary suggests";
     } else {
       waiting.hidden = true;
     }
@@ -132,17 +125,17 @@
       groups[row.category].push(row);
     });
 
+    var group = el("div", "group");
     order.forEach(function (category) {
       var items = groups[category];
-      var group = el("div", "group");
       var head = el("div", "group-head");
       head.appendChild(el("h3", null, category.charAt(0).toUpperCase() + category.slice(1)));
       var packed = items.filter(function (r) { return r.state === "packed"; }).length;
       head.appendChild(el("span", "count", packed + "/" + items.length));
       group.appendChild(head);
       items.forEach(function (row) { group.appendChild(packRow(row)); });
-      host.appendChild(group);
     });
+    host.appendChild(group);
   }
 
   function packRow(row) {
@@ -151,11 +144,8 @@
     main.appendChild(el("span", "box"));
     var label = el("span", "label");
     label.appendChild(el("span", "name", row.name + (row.qty ? " (" + row.qty + ")" : "")));
-    if (row.why && row.why.length) {
-      label.appendChild(el("span", "why", row.why[0] +
-        (row.why.length > 1 ? " +" + (row.why.length - 1) + " more" : "")));
-    }
     main.appendChild(label);
+    if (row.hint) { main.appendChild(el("span", "hint", row.hint)); }
     main.addEventListener("click", function () {
       api("api/pack/" + row.item_id + "/state", { method: "POST", body: {} })
         .then(refresh).catch(function (err) { toast(err.message); });
@@ -219,6 +209,7 @@
   // ---------------------------------------------------------------- tray
 
   function pushSuggestions(cards, parentName, depth) {
+    if (parentName) { state.trayTitle = null; state.trayPull = null; }
     cards.forEach(function (card) {
       var seen = state.tray.some(function (t) { return t.item_id === card.item_id; });
       if (seen) { return; }
@@ -236,46 +227,25 @@
 
   function renderTray() {
     var tray = $("tray");
-    var list = $("tray-list");
-    clear(list);
-    if (!state.tray.length) { tray.hidden = true; renderPack(); return; }
+    if (!state.tray.length) { tray.hidden = true; return; }
     tray.hidden = false;
 
-    var parents = {};
-    state.tray.forEach(function (entry) { if (entry.parent) { parents[entry.parent] = true; } });
-    var names = Object.keys(parents);
-    $("tray-title").textContent = names.length === 1
-      ? "Going with " + names[0] + "?"
-      : "Suggested for this trip";
+    var entry = state.tray[0];
+    $("tray-title").textContent = state.trayTitle ||
+      (entry.parent ? "Going with " + entry.parent + "?" : "Suggested for this trip");
+    $("tray-count").textContent = state.tray.length > 1
+      ? "1 of " + state.tray.length
+      : "";
+    $("tray-name").textContent = entry.name;
+    $("tray-note").textContent = entry.note || "";
 
-    state.tray.forEach(function (entry) {
-      var li = el("li");
-      if (entry.depth > 1) { li.appendChild(el("span", "depth")); }
-      var grow = el("div", "grow");
-      grow.appendChild(el("span", "name", entry.name));
-      if (entry.note) { grow.appendChild(el("span", "note", entry.note)); }
-      li.appendChild(grow);
-
-      var add = el("button", "chip", "Add");
-      add.addEventListener("click", function () {
-        dropFromTray(entry.item_id);
-        var reason = entry.reasons && entry.reasons.length
-          ? entry.reasons[0]
-          : { kind: "suggested_by", item_id: parentIdOf(entry) };
-        addItem(entry.item_id, reason, entry.name, entry.depth);
-      });
-      li.appendChild(add);
-
-      var no = el("button", "chip", "Not this trip");
-      no.addEventListener("click", function () {
-        api("api/pack/" + entry.item_id + "/dismiss", { method: "POST", body: {} })
-          .then(function () { dropFromTray(entry.item_id); return refresh(); })
-          .catch(function (err) { toast(err.message); });
-      });
-      li.appendChild(no);
-      list.appendChild(li);
-    });
+    // Going through sixty suggestions one at a time is nobody's evening.
+    var all = $("tray-all");
+    all.hidden = !state.trayPull || state.tray.length < 2;
+    if (!all.hidden) { all.textContent = "Add all " + state.tray.length; }
   }
+
+  function trayTop() { return state.tray.length ? state.tray[0] : null; }
 
   function parentIdOf(entry) {
     var list = catalog();
@@ -285,8 +255,17 @@
     return null;
   }
 
+  function closeTray() {
+    state.tray = [];
+    state.trayTitle = null;
+    state.trayPull = null;
+    renderTray();
+    renderPack();
+  }
+
   function dropFromTray(itemId) {
     state.tray = state.tray.filter(function (t) { return t.item_id !== itemId; });
+    if (!state.tray.length) { state.trayTitle = null; state.trayPull = null; }
     renderTray();
   }
 
@@ -295,14 +274,15 @@
     api(url).then(function (res) {
       if (!res.candidates.length) { toast("Nothing new for that."); return; }
       state.tray = [];
+      state.trayPull = { date: date || null };
+      state.trayTitle = date
+        ? "Suggested for " + humanDate(date)
+        : "Suggested by your itinerary";
       pushSuggestions(res.candidates.map(function (c) {
         return {
           item_id: c.item_id, name: c.name, notes: c.why.join(" · "), reasons: c.reasons
         };
       }), null, 1);
-      $("tray-title").textContent = date
-        ? "Suggested for " + humanDate(date)
-        : "Suggested by your itinerary";
       switchTab("pack");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }).catch(function (err) { toast(err.message); });
@@ -358,6 +338,7 @@
             .map(function (c) { return { item_id: c.item_id, name: c.name }; });
           if (!cards.length) { toast("Everything that goes with it is already on the list."); return; }
           state.tray = [];
+          state.trayTitle = null;
           pushSuggestions(cards, row.name, 1);
           switchTab("pack");
         }).catch(function (err) { toast(err.message); });
@@ -421,7 +402,7 @@
     });
 
     var addDay = el("li", "day");
-    var addButton = el("button", "ghost", "Add a day");
+    var addButton = el("button", "text-button", "Add a day");
     addButton.addEventListener("click", function () { openDaySheet(null); });
     addDay.appendChild(addButton);
     host.appendChild(addDay);
@@ -435,7 +416,7 @@
       var notes = textField(body, "Notes", day ? day.notes : "");
 
       var actions = el("div", "sheet-actions");
-      var save = el("button", "solid", "Save day");
+      var save = el("button", "filled", "Save day");
       save.addEventListener("click", function () {
         api("api/trips/" + trip().id + "/days", {
           method: "POST",
@@ -551,11 +532,11 @@
         var chip = el("button", "chip", other.name);
         var on = item && item.suggests.indexOf(other.id) >= 0;
         picks[other.id] = on;
-        if (on) { chip.style.borderColor = "var(--brass)"; chip.style.color = "var(--ink)"; }
+        if (on) { chip.style.borderColor = "var(--accent)"; chip.style.color = "var(--accent)"; }
         chip.addEventListener("click", function () {
           picks[other.id] = !picks[other.id];
-          chip.style.borderColor = picks[other.id] ? "var(--brass)" : "var(--hair)";
-          chip.style.color = picks[other.id] ? "var(--ink)" : "var(--body)";
+          chip.style.borderColor = picks[other.id] ? "var(--accent)" : "var(--line)";
+          chip.style.color = picks[other.id] ? "var(--accent)" : "var(--text)";
         });
         box.appendChild(chip);
       });
@@ -563,7 +544,7 @@
 
       var actions = el("div", "sheet-actions");
       actions.style.marginTop = "14px";
-      var save = el("button", "solid", "Save item");
+      var save = el("button", "filled", "Save item");
       save.addEventListener("click", function () {
         var suggests = Object.keys(picks).filter(function (id) { return picks[id]; });
         api("api/items", {
@@ -676,8 +657,35 @@
       openItemEditor({ id: null, name: name, category: "other", tags: [], suggests: [], notes: "", always: false });
     });
 
-    $("tray-close").addEventListener("click", function () { state.tray = []; renderTray(); });
-    $("waiting-open").addEventListener("click", function () { reviewCandidates(null); });
+    $("tray-close").addEventListener("click", closeTray);
+    $("tray-all").addEventListener("click", function () {
+      var pull = state.trayPull;
+      if (!pull) { return; }
+      var count = state.tray.length;
+      api("api/pull", { method: "POST", body: { date: pull.date } })
+        .then(function () {
+          closeTray();
+          toast(count + " added");
+          return refresh();
+        }).catch(function (err) { toast(err.message); });
+    });
+    $("tray-add").addEventListener("click", function () {
+      var entry = trayTop();
+      if (!entry) { return; }
+      dropFromTray(entry.item_id);
+      var reason = entry.reasons && entry.reasons.length
+        ? entry.reasons[0]
+        : { kind: "suggested_by", item_id: parentIdOf(entry) };
+      addItem(entry.item_id, reason, entry.name, entry.depth);
+    });
+    $("tray-skip").addEventListener("click", function () {
+      var entry = trayTop();
+      if (!entry) { return; }
+      api("api/pack/" + entry.item_id + "/dismiss", { method: "POST", body: {} })
+        .then(function () { dropFromTray(entry.item_id); return refresh(); })
+        .catch(function (err) { toast(err.message); });
+    });
+    $("waiting").addEventListener("click", function () { reviewCandidates(null); });
     $("show-skipped").addEventListener("click", function () {
       state.showSkipped = !state.showSkipped;
       renderPack();

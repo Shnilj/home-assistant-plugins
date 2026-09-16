@@ -249,3 +249,33 @@ def test_seed_file_is_consistent():
         if not matched:
             unmatched.append(day["date"])
     assert unmatched == []
+
+
+# ---------------------------------------------------------------- row hints
+
+def test_row_hint_names_the_item_that_brought_it():
+    items = model.index_items(CATALOG)
+    assert model.row_hint([{"kind": "suggested_by", "item_id": "camera"}], items) == "Camera"
+
+
+def test_row_hint_shortens_a_day_and_counts_the_rest():
+    items = model.index_items(CATALOG)
+    hint = model.row_hint(
+        [
+            {"kind": "day", "date": "2026-09-19", "tag": "beach"},
+            {"kind": "day", "date": "2026-09-21", "tag": "hiking"},
+        ],
+        items,
+    )
+    assert hint == "19 Sep +1"
+
+
+def test_row_hint_is_empty_for_something_you_added_yourself():
+    assert model.row_hint([{"kind": "manual"}], model.index_items(CATALOG)) == ""
+
+
+def test_packing_view_carries_the_hint():
+    trip = copy.deepcopy(TRIP)
+    model.add_item(trip, "batteries", {"kind": "suggested_by", "item_id": "camera"})
+    row = model.packing_view(CATALOG, trip)[0]
+    assert row["hint"] == "Camera"

@@ -57,9 +57,13 @@ trip. Adding it manually later undoes that.
 
 ## Using it
 
+The panel follows your Home Assistant theme, light or dark, including a custom
+one. Tabs are at the bottom of the screen.
+
 - **Pack** — search and add, tick things off, or hit *Review* to see what the
-  itinerary suggests. Tap the ⋯ on any row for the why-trail, "what goes with
-  this?", and the leave-behind option.
+  itinerary suggests, one at a time (*Add all* takes the lot). Each row shows
+  the short version of why it is there; tap the ⋯ for the full trail, "what
+  goes with this?", and the leave-behind option.
 - **Days** — your itinerary. Each day shows how many suggested items are not on
   the list yet and how many are still unpacked. *Add suggested* reviews just
   that day.

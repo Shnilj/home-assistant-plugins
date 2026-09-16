@@ -41,7 +41,8 @@ check over every add-on in the repository.
 
 ## Status
 
-v0.1.1, not yet built on the real Supervisor — that is the next step, and it
-is the only thing a local test run cannot tell you (AppArmor, the base image,
-s6, ingress). Web UI only, no MQTT entities yet; `controller.dirty` and
-`controller.summary()` are the hooks for when they arrive.
+v0.2.0, built and running on the real Supervisor. The UI follows the Home
+Assistant theme by reading the resolved theme variables off the parent frame,
+with HA's defaults as the fallback. Web UI only, no MQTT entities yet;
+`controller.dirty` and `controller.summary()` are the hooks for when they
+arrive.
