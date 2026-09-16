@@ -1,0 +1,11 @@
+---
+configuration:
+  log_level:
+    name: Logniveau
+    description: Hoeveel TripPack naar het logboek van de add-on schrijft.
+  data_file:
+    name: Databestand
+    description: >-
+      Waar de paklijsten, items en reisschema's staan. Houd dit onder /config
+      zodat het zichtbaar is, met de hand aanpasbaar en mee in de back-up gaat.
+network: {}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TripPack</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="trip-line">
+    <h1 id="trip-name">TripPack</h1>
+    <span id="trip-dates" class="dates"></span>
+  </div>
+  <div class="route" aria-hidden="true">
+    <div class="route-rail"><div class="route-done" id="route-done"></div></div>
+    <div class="route-marker" id="route-marker"></div>
+  </div>
+  <p class="progress-text" id="progress-text">Loading your list</p>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-tab="pack" role="tab">Pack</button>
+    <button class="tab" data-tab="days" role="tab">Days</button>
+    <button class="tab" data-tab="items" role="tab">Items</button>
+    <button class="tab" data-tab="trips" role="tab">Trips</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ------------------------------------------------ pack -->
+  <section id="view-pack" class="view">
+    <div class="add-row">
+      <input id="add-input" type="search" autocomplete="off" placeholder="Add something to the list">
+      <button id="add-new" class="ghost" hidden>New item</button>
+    </div>
+    <ul id="add-results" class="results" hidden></ul>
+
+    <div id="tray" class="tray" hidden>
+      <div class="tray-head">
+        <h2 id="tray-title">Bring these too?</h2>
+        <button class="ghost" id="tray-close">Done</button>
+      </div>
+      <ul id="tray-list" class="tray-list"></ul>
+    </div>
+
+    <div id="waiting" class="banner" hidden>
+      <span id="waiting-text"></span>
+      <button class="solid" id="waiting-open">Review</button>
+    </div>
+
+    <div id="pack-list"></div>
+
+    <div class="list-footer">
+      <button class="ghost" id="show-skipped">Show what you left behind</button>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ days -->
+  <section id="view-days" class="view" hidden>
+    <ol id="day-list" class="timeline"></ol>
+  </section>
+
+  <!-- ------------------------------------------------ items -->
+  <section id="view-items" class="view" hidden>
+    <div class="add-row">
+      <input id="item-filter" type="search" autocomplete="off" placeholder="Search the catalogue">
+      <button class="solid" id="item-new">Add item</button>
+    </div>
+    <div id="catalog-list"></div>
+  </section>
+
+  <!-- ------------------------------------------------ trips -->
+  <section id="view-trips" class="view" hidden>
+    <div id="trip-list"></div>
+    <div class="card">
+      <h2>Start another trip</h2>
+      <label>Name<input id="new-trip-name" type="text" placeholder="Ardennen december"></label>
+      <div class="two">
+        <label>First day<input id="new-trip-start" type="date"></label>
+        <label>Last day<input id="new-trip-end" type="date"></label>
+      </div>
+      <button class="solid" id="new-trip-save">Create trip</button>
+    </div>
+  </section>
+</main>
+
+<!-- ------------------------------------------------ sheets -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true">
+    <div class="sheet-head">
+      <h2 id="sheet-title"></h2>
+      <button class="ghost" id="sheet-close">Close</button>
+    </div>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+---
+configuration:
+  log_level:
+    name: Log level
+    description: How much TripPack writes to the add-on log.
+  data_file:
+    name: Data file
+    description: >-
+      Where the packing lists, items and itineraries live. Keep it under
+      /config so it is visible, editable by hand and included in backups.
+network: {}
