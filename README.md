@@ -30,6 +30,14 @@ it asks about the spare batteries, the lens and the bag — one step at a time.
 Every item keeps the trail of **why** it is on the list. Phone-friendly web UI
 in the sidebar; everything lives in one editable JSON file.
 
+### 📦 [Stash](./stash)
+
+Know where your stuff is. Every thing can live in **several places**, each down
+to the shelf wall, the compartment ("14th from the right, 2nd from the top")
+and the box inside it. Shelf walls like a row of Kallax units are a grid you
+tap on; search forgives `usbc` vs `USB-C`. Phone-friendly web UI in the
+sidebar; everything lives in one editable JSON file.
+
 ## Installing this repository
 
 1. In Home Assistant go to **Settings → Add-ons → Add-on Store**.

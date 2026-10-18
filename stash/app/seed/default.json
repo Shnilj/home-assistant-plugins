@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "places": [
+    {"id": "man_cave", "name": "Man cave", "kind": "room", "parent": null,
+     "notes": "The attic"},
+    {"id": "left_kallax", "name": "Left Kallax", "kind": "grid", "parent": "man_cave",
+     "cols": 16, "rows": 4, "count_cols_from": "right", "count_rows_from": "top",
+     "notes": "Set the real number of columns and rows under Edit"},
+    {"id": "right_kallax", "name": "Right Kallax", "kind": "grid", "parent": "man_cave",
+     "cols": 16, "rows": 4, "count_cols_from": "left", "count_rows_from": "top",
+     "notes": "Set the real number of columns and rows under Edit"},
+    {"id": "behind_left_kallax", "name": "Behind the left Kallax", "kind": "area",
+     "parent": "man_cave"},
+    {"id": "behind_right_kallax", "name": "Behind the right Kallax", "kind": "area",
+     "parent": "man_cave"},
+    {"id": "black_box_with_lid", "name": "Black box with lid", "kind": "container",
+     "parent": "left_kallax", "cell": {"col": 14, "row": 2}}
+  ],
+  "items": [
+    {"id": "usb_c_cable", "name": "USB-C cable", "category": "Cables",
+     "tags": ["charging", "usb"],
+     "notes": "Example item — delete it once your own stuff is in.",
+     "locations": [
+       {"id": "loc_seed0001", "place": "black_box_with_lid", "qty": 3, "note": "1 m, braided"},
+       {"id": "loc_seed0002", "place": "right_kallax", "cell": {"col": 3, "row": 1}, "qty": 2,
+        "note": ""}
+     ]}
+  ]
+}

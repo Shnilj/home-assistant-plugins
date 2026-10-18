@@ -1,0 +1,11 @@
+---
+configuration:
+  log_level:
+    name: Logniveau
+    description: Hoeveel Stash in het add-on-logboek schrijft.
+  data_file:
+    name: Gegevensbestand
+    description: >-
+      Waar je plekken en spullen bewaard worden. Laat het onder /config staan,
+      dan is het zichtbaar, met de hand aan te passen en zit het in je backups.
+network: {}

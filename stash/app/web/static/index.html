@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stash</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F5D50'/%3E%3Cg fill='%23fff'%3E%3Crect x='6' y='6' width='9' height='9' rx='1.5'/%3E%3Crect x='17' y='6' width='9' height='9' rx='1.5'/%3E%3Crect x='6' y='17' width='9' height='9' rx='1.5'/%3E%3C/g%3E%3Crect x='17' y='17' width='9' height='9' rx='1.5' fill='%23E9B44C'/%3E%3C/svg%3E">
+<script>
+/* Home Assistant serves this panel from its own origin, so the parent document
+   is readable and its resolved theme variables can be borrowed — including the
+   ones a custom theme sets. If that is ever not possible the catch runs and the
+   Home Assistant defaults in style.css stand instead. (Same as TripPack.) */
+(function () {
+  var MAP = {
+    "--bg": "--primary-background-color",
+    "--card": "--card-background-color",
+    "--text": "--primary-text-color",
+    "--muted": "--secondary-text-color",
+    "--line": "--divider-color",
+    "--accent": "--primary-color",
+    "--radius": "--ha-card-border-radius"
+  };
+  function sync() {
+    try {
+      if (!window.parent || window.parent === window) { return; }
+      var theirs = window.parent.getComputedStyle(window.parent.document.documentElement);
+      var found = {};
+      for (var name in MAP) {
+        var value = theirs.getPropertyValue(MAP[name]).trim();
+        if (value) { found[name] = value; }
+      }
+      if (!found["--bg"] || !found["--text"]) { return; }
+      var ours = document.documentElement.style;
+      for (var key in found) { ours.setProperty(key, found[key]); }
+      document.documentElement.setAttribute("data-theme", "ha");
+    } catch (err) {
+      /* Not same-origin, or no parent: style.css already carries the defaults. */
+    }
+  }
+  sync();
+  window.addEventListener("focus", sync);
+  document.addEventListener("visibilitychange", sync);
+})();
+</script>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+<main>
+  <!-- ------------------------------------------------ find -->
+  <section id="view-find" class="view">
+    <div class="search-bar">
+      <input id="search" type="search" autocomplete="off" enterkeyhint="search"
+             placeholder="Where is my…">
+      <button class="filled" id="new-item">Add</button>
+    </div>
+    <div id="find-meta" class="meta-line"></div>
+    <div id="find-places"></div>
+    <div id="find-list"></div>
+  </section>
+
+  <!-- ------------------------------------------------ places -->
+  <section id="view-places" class="view" hidden>
+    <nav id="crumbs" class="crumbs" aria-label="Where you are"></nav>
+    <div id="place-body"></div>
+  </section>
+</main>
+
+<!-- ------------------------------------------------ bottom nav -->
+<nav class="nav" role="tablist">
+  <button class="tab is-active" data-tab="find" role="tab" aria-label="Find">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>
+    <span>Find</span>
+  </button>
+  <button class="tab" data-tab="places" role="tab" aria-label="Places">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1"/><rect x="13" y="13" width="7.5" height="7.5" rx="1"/></svg>
+    <span>Places</span>
+  </button>
+</nav>
+
+<!-- ------------------------------------------------ sheet (stacked) -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <button class="text-button" id="sheet-back" hidden>Back</button>
+      <h2 id="sheet-title"></h2>
+      <button class="text-button" id="sheet-close">Close</button>
+    </div>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="static/app.js"></script>
+</body>
+</html>

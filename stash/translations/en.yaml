@@ -1,0 +1,11 @@
+---
+configuration:
+  log_level:
+    name: Log level
+    description: How much Stash writes to the add-on log.
+  data_file:
+    name: Data file
+    description: >-
+      Where your places and things live. Keep it under /config so it is
+      visible, editable by hand and included in backups.
+network: {}
