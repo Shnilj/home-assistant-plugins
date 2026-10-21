@@ -110,6 +110,20 @@ def create_app(controller):
     def api_remove_location(item_id, location_id):
         return jsonify(controller.remove_location(item_id, location_id))
 
+    # -- import -----------------------------------------------------------
+
+    @app.post("/api/import")
+    def api_import():
+        body = _body()
+        payload = body.get("text") if "text" in body else body.get("data")
+        if payload is None:
+            return jsonify({"error": "send the batch as \"text\" (JSON as a string) or \"data\""}), 400
+        return jsonify(
+            controller.import_batch(
+                payload, body.get("spot"), dry_run=bool(body.get("dry_run", True))
+            )
+        )
+
     # -- errors -----------------------------------------------------------
     # Deliberately narrow: a stray KeyError from a bug should still be a 500
     # with a traceback in the log, not a quiet 404.

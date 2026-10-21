@@ -482,3 +482,50 @@ textarea { min-height: 64px; resize: vertical; }
   color: var(--card);
   background: var(--text);
 }
+
+/* ------------------------------------------------------------ import */
+
+.meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.meta-row .meta-line { padding-bottom: 0; }
+.text-button.small { min-height: 32px; font-size: 12px; }
+textarea.code {
+  min-height: 180px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+}
+.file-row { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; font-size: 12px; color: var(--muted); }
+.file-row input[type="file"] { display: none; }
+.import-error {
+  font-size: 13px;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 8px 0;
+}
+.import-summary { font-size: 15px; margin: 4px 0 8px; }
+.import-summary .muted { color: var(--muted); font-size: 13px; }
+.report-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.report-row:first-of-type { border-top: 0; }
+.report-row .name { font-weight: 500; }
+.report-row .matched { font-size: 12px; color: var(--muted); }
+.report-row .where { font-size: 12px; color: var(--muted); }
+.report-row .reason { font-size: 12px; color: var(--danger); }
+.report-row.warn .reason { color: var(--muted); }
+details.report { border: 1px solid var(--line); border-radius: var(--radius); padding: 0 14px; margin-bottom: 8px; }
+details.report summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 500;
+}
+details.report summary::-webkit-details-marker { display: none; }
+details.report summary .count { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+details.report.bad summary { color: var(--danger); }
+details.report[open] summary { border-bottom: 1px solid var(--line); }

@@ -1,0 +1,816 @@
+{
+  "places": [
+    {
+      "id": "top_of_left_kallax",
+      "name": "On top of the left Kallax",
+      "kind": "area",
+      "parent": "man_cave",
+      "notes": "Above columns 5–7"
+    }
+  ],
+  "items": [
+    {
+      "name": "The Official Star Wars Fact File",
+      "category": "Books",
+      "tags": [
+        "star wars",
+        "binder",
+        "deagostini"
+      ],
+      "notes": "Several binders (DeAgostini) – count not checked",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 1
+          },
+          "qty": null
+        }
+      ]
+    },
+    {
+      "name": "Star Wars books (Darth Vader, Princess Leia, …)",
+      "category": "Books",
+      "tags": [
+        "star wars",
+        "comics"
+      ],
+      "notes": "Row of Star Wars hardcovers next to the Fact File – check titles",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 1
+          },
+          "qty": null
+        }
+      ]
+    },
+    {
+      "name": "Alarm clock (analogue, silver)",
+      "category": "Decoration",
+      "tags": [
+        "clock"
+      ],
+      "notes": "Classic twin-bell style",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Game of Thrones 'Winter is Coming' mug / stein gift box",
+      "category": "Merchandise",
+      "tags": [
+        "game of thrones",
+        "hbo",
+        "mug",
+        "stark"
+      ],
+      "notes": "HBO gift box",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Black gift bag",
+      "category": "Packaging",
+      "tags": [
+        "bag",
+        "gift"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Public Affairs in Practice",
+      "category": "Books",
+      "tags": [
+        "book",
+        "communication"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Overtuigingskracht",
+      "category": "Books",
+      "tags": [
+        "book",
+        "marketing"
+      ],
+      "notes": "Dutch",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Digitalis",
+      "category": "Books",
+      "tags": [
+        "book",
+        "digital"
+      ],
+      "notes": "Thierry Geerts",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Getting Things Done",
+      "category": "Books",
+      "tags": [
+        "book",
+        "productivity"
+      ],
+      "notes": "David Allen",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Verleiden",
+      "category": "Books",
+      "tags": [
+        "book",
+        "marketing"
+      ],
+      "notes": "Dutch",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Graphic Design Exercise Book",
+      "category": "Books",
+      "tags": [
+        "book",
+        "design"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Copy & Concept",
+      "category": "Books",
+      "tags": [
+        "book",
+        "advertising"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Epica Book Twenty One – Europe's Best Advertising",
+      "category": "Books",
+      "tags": [
+        "book",
+        "advertising"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "A History of Advertising",
+      "category": "Books",
+      "tags": [
+        "book",
+        "advertising",
+        "taschen"
+      ],
+      "notes": "Taschen",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Adobe Classroom in a Book",
+      "category": "Books",
+      "tags": [
+        "book",
+        "design",
+        "adobe"
+      ],
+      "notes": "Check which application",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 7,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Rolled-up mats / posters",
+      "category": "Other",
+      "tags": [
+        "mat",
+        "poster",
+        "roll"
+      ],
+      "notes": "About four rolls – check what they are",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 1
+          },
+          "qty": null
+        }
+      ]
+    },
+    {
+      "name": "Puma shoebox (pink)",
+      "category": "Storage",
+      "tags": [
+        "box",
+        "puma"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Box with winter deer picture",
+      "category": "Other",
+      "tags": [
+        "box"
+      ],
+      "notes": "Check what this is",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Small white gift boxes",
+      "category": "Packaging",
+      "tags": [
+        "box",
+        "gift"
+      ],
+      "notes": "Stacked on top",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 1
+          },
+          "qty": null
+        }
+      ]
+    },
+    {
+      "name": "LEGO Seinfeld",
+      "category": "LEGO",
+      "tags": [
+        "lego",
+        "ideas",
+        "seinfeld"
+      ],
+      "notes": "LEGO Ideas 21328",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "LEGO Harry Potter set",
+      "category": "LEGO",
+      "tags": [
+        "lego",
+        "harry potter"
+      ],
+      "notes": "Blue box – check set number",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "LEGO Star Wars set (white box)",
+      "category": "LEGO",
+      "tags": [
+        "lego",
+        "star wars"
+      ],
+      "notes": "Tall white box – check set number",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "LEGO flower set (red rose)",
+      "category": "LEGO",
+      "tags": [
+        "lego",
+        "flowers",
+        "botanical"
+      ],
+      "notes": "Yellow box – check set number",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "LEGO set (pink box)",
+      "category": "LEGO",
+      "tags": [
+        "lego"
+      ],
+      "notes": "Check set number",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "LEGO set (black box, green plant)",
+      "category": "LEGO",
+      "tags": [
+        "lego",
+        "botanical"
+      ],
+      "notes": "Check set number",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Black storage bin",
+      "category": "Storage",
+      "tags": [
+        "bin",
+        "box"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 6,
+            "row": 3
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "DC Comics Originals heat-activated mug",
+      "category": "Merchandise",
+      "tags": [
+        "mug",
+        "dc comics"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Magazines and notebooks",
+      "category": "Paper",
+      "tags": [
+        "magazines",
+        "notebooks"
+      ],
+      "notes": "Stack – contents not checked",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": null
+        }
+      ]
+    },
+    {
+      "name": "Aardappelgerechten",
+      "category": "Cookbooks",
+      "tags": [
+        "cookbook",
+        "book"
+      ],
+      "notes": "Dutch – the last two may be in the next compartment (col 4)",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Pasta Sauzen",
+      "category": "Cookbooks",
+      "tags": [
+        "cookbook",
+        "book"
+      ],
+      "notes": "Dutch – the last two may be in the next compartment (col 4)",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Pasta + Pizza",
+      "category": "Cookbooks",
+      "tags": [
+        "cookbook",
+        "book"
+      ],
+      "notes": "Dutch – the last two may be in the next compartment (col 4)",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "De Pastabijbel",
+      "category": "Cookbooks",
+      "tags": [
+        "cookbook",
+        "book"
+      ],
+      "notes": "Dutch – the last two may be in the next compartment (col 4)",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Da's pas koken",
+      "category": "Cookbooks",
+      "tags": [
+        "cookbook",
+        "book"
+      ],
+      "notes": "Dutch – the last two may be in the next compartment (col 4)",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 1
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Disney storage box",
+      "category": "Storage",
+      "tags": [
+        "box",
+        "disney"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "even&odd box (white)",
+      "category": "Storage",
+      "tags": [
+        "box",
+        "shoebox"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Plastic storage container",
+      "category": "Storage",
+      "tags": [
+        "box",
+        "plastic"
+      ],
+      "notes": "Contents unknown",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Black laptop sleeve / bag",
+      "category": "Bags",
+      "tags": [
+        "bag",
+        "laptop"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 2
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Wooden castle cut-out",
+      "category": "Decoration",
+      "tags": [
+        "wood",
+        "castle"
+      ],
+      "notes": "Standing in front of the bottom compartment",
+      "locations": [
+        {
+          "place": "left_kallax",
+          "cell": {
+            "col": 5,
+            "row": 3
+          },
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Talisker enamel mug",
+      "category": "Merchandise",
+      "tags": [
+        "mug",
+        "whisky",
+        "talisker"
+      ],
+      "notes": "Holds a deck of playing cards",
+      "locations": [
+        {
+          "place": "top_of_left_kallax",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Playing cards",
+      "category": "Games",
+      "tags": [
+        "cards"
+      ],
+      "notes": "In the Talisker mug",
+      "locations": [
+        {
+          "place": "top_of_left_kallax",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Halloween pumpkin bucket (orange)",
+      "category": "Decoration",
+      "tags": [
+        "halloween",
+        "seasonal"
+      ],
+      "notes": "",
+      "locations": [
+        {
+          "place": "top_of_left_kallax",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "La Casa de Papel puzzle",
+      "category": "Puzzles",
+      "tags": [
+        "puzzle",
+        "1000",
+        "clementoni",
+        "la casa de papel"
+      ],
+      "notes": "Clementoni, 1000 pieces",
+      "locations": [
+        {
+          "place": "top_of_left_kallax",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "Grey miniature / figurine",
+      "category": "Miniatures",
+      "tags": [
+        "miniature"
+      ],
+      "notes": "Small, next to the mug – check what it is",
+      "locations": [
+        {
+          "place": "top_of_left_kallax",
+          "qty": 1
+        }
+      ]
+    }
+  ]
+}

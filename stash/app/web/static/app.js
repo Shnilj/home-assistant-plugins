@@ -369,6 +369,7 @@
         body.appendChild(box);
       }
       var actions = el("div", "actions");
+      actions.appendChild(button("outlined", "Import", function () { openImport(); }));
       actions.appendChild(button("outlined", "Add a room", function () {
         openPlaceEditor({ kind: "room", parent: null });
       }));
@@ -1104,6 +1105,166 @@
     openSheet(frame);
   }
 
+  // ================================================================ import
+
+  /* Paste (or pick a .json file), preview what would change, then confirm.
+     The server does all the matching; the preview is the real import run on
+     a copy, so what it promises is exactly what "Import" does. */
+  function openImport(seed) {
+    var draft = { text: (seed && seed.text) || "", spot: (seed && seed.spot) || null, report: null, error: "" };
+    var frame = { title: "Import" };
+
+    function preview() {
+      draft.error = "";
+      draft.report = null;
+      if (!draft.text.trim()) { draft.error = "Paste some JSON first, or pick a file."; renderSheet(); return; }
+      api("api/import", { method: "POST", body: { text: draft.text, spot: draft.spot, dry_run: true } })
+        .then(function (report) { draft.report = report; renderSheet(); })
+        .catch(function (err) { draft.error = err.message; renderSheet(); });
+    }
+    function apply() {
+      api("api/import", { method: "POST", body: { text: draft.text, spot: draft.spot, dry_run: false } })
+        .then(function (report) {
+          var c = report.counts;
+          var bits = [];
+          if (c.items_created) { bits.push(c.items_created + " new"); }
+          if (c.items_added) { bits.push(c.items_added + " added to existing"); }
+          if (c.places_created) { bits.push(c.places_created + (c.places_created === 1 ? " place" : " places")); }
+          toast("Imported " + (bits.join(", ") || "nothing"));
+          closeTop();
+          S.results = null;
+          return afterChange().then(function () { if (S.query) { runSearch(); } });
+        }).catch(function (err) { draft.error = err.message; renderSheet(); });
+    }
+
+    function section(title, rows, kind, open, draw) {
+      if (!rows.length) { return null; }
+      var box = el("details", "report" + (kind === "bad" ? " bad" : ""));
+      box.open = open;
+      var summary = el("summary");
+      summary.appendChild(el("span", null, title));
+      summary.appendChild(el("span", "count", String(rows.length)));
+      box.appendChild(summary);
+      rows.forEach(function (row) {
+        var line = el("div", "report-row" + (kind === "warn" ? " warn" : ""));
+        draw(line, row);
+        box.appendChild(line);
+      });
+      return box;
+    }
+
+    function drawReport(body, report) {
+      var c = report.counts;
+      var summary = el("div", "import-summary");
+      if (!report.changes) {
+        summary.textContent = "Nothing would change.";
+      } else {
+        var parts = [];
+        if (c.items_created) { parts.push(c.items_created + (c.items_created === 1 ? " new thing" : " new things")); }
+        if (c.items_added) { parts.push(c.items_added + " added to things you have"); }
+        if (c.places_created) { parts.push(c.places_created + (c.places_created === 1 ? " new place" : " new places")); }
+        summary.textContent = parts.join(" · ");
+      }
+      if (c.skipped) {
+        summary.appendChild(document.createTextNode(" "));
+        summary.appendChild(el("span", "muted", "(" + c.skipped + " left out)"));
+      }
+      body.appendChild(summary);
+
+      var where = function (line, row) {
+        line.appendChild(el("div", "name", row.name));
+        if (row.matched && row.matched !== row.name) {
+          line.appendChild(el("div", "matched", "matches “" + row.matched + "”"));
+        }
+        (row.where || []).forEach(function (w) { line.appendChild(el("div", "where", shortWhere(w))); });
+        if (row.where && !row.where.length) { line.appendChild(el("div", "where", "Not put anywhere")); }
+      };
+      var reason = function (line, row) {
+        line.appendChild(el("div", "name", row.name));
+        line.appendChild(el("div", "reason", row.reason));
+      };
+      [
+        section("Left out", report.skipped, "bad", true, reason),
+        section("Partly imported", report.warnings, "warn", true, reason),
+        section("New places", report.places_created, "", report.places_created.length <= 5, function (line, row) {
+          line.appendChild(el("div", "name", row.name));
+          line.appendChild(el("div", "where", shortWhere(row.where)));
+        }),
+        section("Added to things you have", report.items_added, "", true, where),
+        section("New things", report.items_created, "", report.items_created.length <= 12, where)
+      ].forEach(function (node) { if (node) { body.appendChild(node); } });
+
+      var actions = el("div", "actions");
+      var go = button("filled", report.changes ? "Import" : "Nothing to import", apply);
+      go.disabled = !report.changes;
+      actions.appendChild(go);
+      actions.appendChild(button("outlined", "Back to the text", function () {
+        draft.report = null; renderSheet(true);
+      }));
+      body.appendChild(actions);
+    }
+
+    // The server spells out every path in full; in a list, drop the room.
+    function shortWhere(text) {
+      var segs = text.split(" › ");
+      var all = roots();
+      if (segs.length > 1 && all.length === 1 && segs[0] === all[0].name) { segs = segs.slice(1); }
+      return segs.map(function (s) { return /from the/.test(s) ? compactLabel(s) : s; }).join(" › ");
+    }
+
+    frame.build = function (body) {
+      if (draft.report) {
+        if (draft.error) { body.appendChild(el("div", "import-error", draft.error)); }
+        drawReport(body, draft.report);
+        return;
+      }
+      var area = el("textarea", "code");
+      area.value = draft.text;
+      area.spellcheck = false;
+      area.setAttribute("autocapitalize", "off");
+      area.setAttribute("autocorrect", "off");
+      area.placeholder = '{"spot": {"place": "black_box_with_lid"},\n "items": [\n  {"name": "USB-C cable", "qty": 3},\n  {"name": "HDMI cable"}\n ]}';
+      area.addEventListener("input", function () { draft.text = area.value; });
+      body.appendChild(field("Paste JSON", area));
+
+      var fileRow = el("div", "file-row");
+      var picker = el("input");
+      picker.type = "file";
+      picker.accept = ".json,application/json,text/plain";
+      picker.addEventListener("change", function () {
+        var file = picker.files && picker.files[0];
+        if (!file) { return; }
+        var reader = new FileReader();
+        reader.onload = function () { draft.text = String(reader.result || ""); draft.error = ""; renderSheet(); };
+        reader.onerror = function () { draft.error = "Could not read " + file.name; renderSheet(); };
+        reader.readAsText(file);
+      });
+      fileRow.appendChild(picker);
+      fileRow.appendChild(button("outlined", "Choose a file", function () { picker.click(); }));
+      fileRow.appendChild(el("span", null, "or paste above"));
+      body.appendChild(fileRow);
+
+      body.appendChild(el("div", "field-label", "Things that don’t say where they are go to"));
+      body.appendChild(spotButton(draft.spot, function () {
+        pickSpot({ title: "Put them where?", initial: draft.spot, onPick: function (spot) { draft.spot = spot; } });
+      }, "Nowhere yet (they stay unplaced)"));
+      if (draft.spot) {
+        var clearRow = el("div", "actions");
+        clearRow.style.marginTop = "-8px";
+        clearRow.appendChild(button("text-button small", "Clear", function () { draft.spot = null; renderSheet(); }));
+        body.appendChild(clearRow);
+      }
+
+      if (draft.error) { body.appendChild(el("div", "import-error", draft.error)); }
+      var actions = el("div", "actions");
+      actions.appendChild(button("filled", "Preview", preview));
+      body.appendChild(actions);
+      body.appendChild(el("div", "meta-line",
+        "Nothing changes until you confirm. Things you already have get the new spots added, not a second copy."));
+    };
+    openSheet(frame);
+  }
+
   // ================================================================ wiring
 
   function init() {
@@ -1124,6 +1285,7 @@
     $("new-item").addEventListener("click", function () {
       openItemEditor({ name: S.results && !S.results.items.length ? S.query.trim() : "" });
     });
+    $("import-open").addEventListener("click", function () { openImport(); });
     $("sheet-close").addEventListener("click", closeAll);
     $("sheet-back").addEventListener("click", closeTop);
     $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) { closeAll(); } });

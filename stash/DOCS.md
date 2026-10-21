@@ -64,6 +64,45 @@ Open the box under **Places**, tap **Add thing here**, type a name, then
 The place picker also keeps your last five spots at the top, and can create a
 new box right where you are browsing ("New box here…").
 
+## Importing
+
+**Import** (next to the count on Find, or under Places) takes a batch of JSON,
+shows what it would do, and only changes anything when you confirm. Use it for
+lists made from a photo of a compartment, a spreadsheet export, or anything
+else you would rather not type in one by one.
+
+Any of these shapes work:
+
+```json
+{"spot": {"place": "right_kallax", "cell": {"col": 4, "row": 2}},
+ "items": [
+   {"name": "Sky Team", "category": "Board games", "tags": ["co-op"]},
+   {"name": "Kingdomino", "qty": 2, "note": "one is a gift"}
+ ]}
+```
+
+- `spot` + `items`: everything goes into that spot unless an item names its
+  own (`locations`, or `place`/`cell` on the item itself).
+- `places` + `items`: the same shape as stash.json, so a whole file works.
+  New places may refer to each other, in any order.
+- A plain list `[{...}, {...}]`, or a run of `{...},` objects copied out of a
+  chat — the missing brackets and the trailing comma are forgiven.
+
+How it decides:
+
+- **Things you already have** are matched by name, ignoring case, accents and
+  punctuation. The new spot is added to them; if it is a spot they are already
+  in, the counts add up. Tags are merged, an empty category or notes field is
+  filled in, nothing else is overwritten.
+- **Places** with an id you already have are reused as they are (never
+  renamed or moved). A place without an id is reused if one with the same name
+  already sits in the same spot.
+- `qty` defaults to 1; `"qty": null` means "not counted".
+- The preview lists anything **left out** with the reason: an unknown place,
+  a compartment outside the wall, a thing without a name. Things with no spot
+  at all are imported as "not put anywhere yet"; pick a spot in the import
+  sheet to send them somewhere instead.
+
 ## The data file
 
 Everything lives in one JSON file (option `data_file`, default
@@ -119,6 +158,7 @@ path):
 | POST | `api/items/<id>/locations` | add a spot `{place, cell, qty, note}` |
 | POST | `api/items/<id>/locations/<loc>` | move / recount / note |
 | POST | `api/items/<id>/locations/<loc>/step` | `{delta: -1}` |
+| POST | `api/import` | `{text, spot?, dry_run}` — preview by default, `dry_run: false` applies |
 | DELETE | `api/items/<id>` · `api/places/<id>` · `api/items/<id>/locations/<loc>` | |
 
 ## Updating

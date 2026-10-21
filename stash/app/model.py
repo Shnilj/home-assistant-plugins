@@ -63,6 +63,29 @@ def cell_key(cell):
     return "%s,%s" % (cell.get("col"), cell.get("row")) if cell else ""
 
 
+def merge_location(locations, loc):
+    """Add a location, or fold it into one already at the same spot.
+
+    Counts add up; if either side is "not counted" the merged one stays not
+    counted. Returns the location that now holds it.
+    """
+    for other in locations:
+        if other is loc:
+            continue
+        if other["place"] == loc["place"] and same_cell(other.get("cell"), loc.get("cell")):
+            if other.get("qty") is not None and loc.get("qty") is not None:
+                other["qty"] += loc["qty"]
+            note = loc.get("note") or ""
+            if note and note not in (other.get("note") or ""):
+                other["note"] = ((other.get("note") or "") + "; " + note).strip("; ")
+            if loc in locations:
+                locations.remove(loc)
+            return other
+    if loc not in locations:
+        locations.append(loc)
+    return loc
+
+
 def same_cell(a, b):
     if not a and not b:
         return True

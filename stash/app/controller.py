@@ -8,11 +8,12 @@ every change for a future MQTT publisher.
 
 from __future__ import annotations
 
+import copy
 import functools
 import logging
 import threading
 
-from . import model, store
+from . import importer, model, store
 from .store import ValidationError
 
 LOG = logging.getLogger("stash.controller")
@@ -114,23 +115,7 @@ class Controller:
     def _view(self, item):
         return model.item_view(model.index(self.places), item)
 
-    @staticmethod
-    def _merge_into(locations, loc):
-        """Add a location, or fold it into one already at the same spot."""
-        for other in locations:
-            if other is loc:
-                continue
-            if other["place"] == loc["place"] and model.same_cell(other["cell"], loc["cell"]):
-                if other["qty"] is not None and loc["qty"] is not None:
-                    other["qty"] += loc["qty"]
-                if loc["note"] and loc["note"] not in other["note"]:
-                    other["note"] = (other["note"] + "; " + loc["note"]).strip("; ")
-                if loc in locations:
-                    locations.remove(loc)
-                return other
-        if loc not in locations:
-            locations.append(loc)
-        return loc
+    _merge_into = staticmethod(model.merge_location)
 
     # -- reads -------------------------------------------------------------
 
@@ -389,3 +374,29 @@ class Controller:
         item["locations"].remove(self._location(item, location_id))
         self._save()
         return self._view(item)
+
+    # -- import ------------------------------------------------------------
+
+    @guarded
+    def import_batch(self, payload, default_spot=None, dry_run=True):
+        """Preview (dry_run) or apply a batch; see importer.py for the rules.
+
+        Always works on a copy, so a batch that fails halfway leaves the real
+        data untouched; applying swaps the copy in and saves once.
+        """
+        if isinstance(payload, str):
+            payload = importer.parse_text(payload)
+        if default_spot is not None and not (isinstance(default_spot, dict) and default_spot.get("place")):
+            default_spot = None
+        work = copy.deepcopy(self._data)
+        report = importer.run(work, payload, default_spot)
+        report["dry_run"] = bool(dry_run)
+        if not dry_run and report["changes"]:
+            self._data = store.normalize_data(work)
+            self._save()
+            LOG.info(
+                "Imported %d new things, %d into existing ones, %d new places, %d skipped",
+                report["counts"]["items_created"], report["counts"]["items_added"],
+                report["counts"]["places_created"], report["counts"]["skipped"],
+            )
+        return report

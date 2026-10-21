@@ -15,6 +15,8 @@ shelf wall, the compartment and the box inside it:
 - Rooms, areas ("behind the left Kallax") and boxes nest as deep as you like.
 - Search forgives punctuation and case: `usbc`, `usb c` and `USB-C` all find
   the cable.
+- **Import** a batch of things as JSON — a list made from a photo of a shelf,
+  say — with a preview of what will be added before anything changes.
 - A phone-friendly panel in the Home Assistant sidebar that follows your HA
   theme. Everything lives in one editable JSON file.
 

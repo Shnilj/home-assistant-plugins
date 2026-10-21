@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.0 — 2026-10-21
+
+**Import.** Bring in a batch of things — say, a list made from a photo of a
+compartment — without editing stash.json by hand.
+
+- **Import** sits next to the count on Find, and under Places. Paste JSON or
+  choose a .json file, optionally pick a spot for things that do not say where
+  they are, then **Preview**.
+- The preview is the real import run on a copy: new things, things that get
+  added to ones you already have, new places, and anything left out with the
+  reason. Nothing changes until you tap **Import**.
+- Takes the stash.json shape (`places` + `items`), a `spot` with a list of
+  `items`, a plain list, or a run of `{…},` objects copied out of a chat.
+- Things you already have are matched by name, ignoring case and punctuation
+  ("usb c cable" is "USB-C cable"): the new spot is added — or the count goes
+  up if it is the same spot — and tags are merged. Importing the same batch
+  twice therefore shows up as "added to things you have", never as duplicates.
+- Places are reused by id, or by name in the same spot, and never
+  overwritten; new places may refer to each other in any order.
+- A spot pointing at an unknown place or outside a wall is left out and
+  reported. A thing whose every spot was bad is skipped rather than imported
+  as "not put anywhere".
+- New `POST api/import` with `text` (or `data`), optional `spot`, and
+  `dry_run` (default true).
+
+
 ## 0.1.0 — 2026-10-18
 
 First version.
