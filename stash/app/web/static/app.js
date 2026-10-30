@@ -68,6 +68,7 @@
   var ICONS = {
     room: '<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
     grid: '<rect x="3.5" y="4" width="17" height="16" rx="1"/><path d="M3.5 9.3h17M3.5 14.6h17M9.2 4v16M14.8 4v16"/>',
+    sorting_box: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M8 5v15M14 5v8M8 13h13M9 5V3h6v2"/>',
     area: '<rect x="3.5" y="5" width="17" height="14" rx="2" stroke-dasharray="3 2.4"/>',
     container: '<path d="M4 8.5h16V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 5h18v3.5H3z"/><path d="M10 12h4"/>',
     cell: '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
@@ -80,7 +81,7 @@
     return span;
   }
 
-  var KIND_LABELS = { room: "Room", grid: "Shelf wall", area: "Area", container: "Box" };
+  var KIND_LABELS = { room: "Room", grid: "Shelf wall", area: "Area", container: "Box", sorting_box: "Sorting box" };
 
   // ================================================================ storage (per viewer)
 
@@ -99,6 +100,20 @@
 
   // ================================================================ places, paths, cells
 
+  function isGrid(place) { return place.kind === "grid" || place.kind === "sorting_box"; }
+  function rectAt(grid, cell) {
+    return (grid.merged_cells || []).filter(function (r) { return inRect(r, cell); })[0] ||
+      { col: cell.col, row: cell.row, cols: 1, rows: 1 };
+  }
+  function inRect(r, cell) {
+    return cell.col >= r.col && cell.col < r.col + r.cols &&
+      cell.row >= r.row && cell.row < r.row + r.rows;
+  }
+  function anchorCell(grid, cell) {
+    if (!cell) { return null; }
+    var r = rectAt(grid, cell); return { col: r.col, row: r.row };
+  }
+
   function sameCell(a, b) {
     if (!a && !b) { return true; }
     if (!a || !b) { return false; }
@@ -112,6 +127,11 @@
   }
   function cellLabel(grid, cell) {
     if (!cell) { return ""; }
+    var r = rectAt(grid, cell);
+    if (r.cols > 1 || r.rows > 1) {
+      return "Columns " + r.col + "–" + (r.col + r.cols - 1) +
+        ", rows " + r.row + "–" + (r.row + r.rows - 1);
+    }
     return ordinal(cell.col) + " from the " + (grid.count_cols_from || "left") + ", " +
       ordinal(cell.row) + " from the " + (grid.count_rows_from || "top");
   }
@@ -128,13 +148,13 @@
     var out = [];
     chain.forEach(function (p) {
       var parent = p.parent && S.places[p.parent];
-      if (p.cell && parent && parent.kind === "grid") {
+      if (p.cell && parent && isGrid(parent)) {
         out.push({ kind: "cell", label: cellLabel(parent, p.cell), id: parent.id, cell: p.cell });
       }
       out.push({ kind: p.kind, label: p.name, id: p.id });
     });
     var place = S.places[placeId];
-    if (cell && place && place.kind === "grid") {
+    if (cell && place && isGrid(place)) {
       out.push({ kind: "cell", label: cellLabel(place, cell), id: place.id, cell: cell });
     }
     return out;
@@ -213,7 +233,7 @@
   }
 
   function goTo(placeId, cell) {
-    S.nav = { place: placeId || null, cell: cell || null };
+    S.nav = { place: placeId || null, cell: S.places[placeId] ? anchorCell(S.places[placeId], cell) : cell || null };
     closeAll();
     switchTab("places");
   }
@@ -403,6 +423,7 @@
   function drawPlace(view) {
     var body = clear($("place-body"));
     var place = view.place;
+    S.nav.cell = view.cell;
     renderCrumbs($("crumbs"), view.path, navigate);
 
     var card = el("div", "card");
@@ -415,7 +436,7 @@
     } else {
       grow.appendChild(el("h1", null, place.name));
       var sub = KIND_LABELS[place.kind];
-      if (place.kind === "grid") { sub += " · " + place.cols + " × " + place.rows; }
+      if (isGrid(place)) { sub += " · " + place.cols + " × " + place.rows; }
       if (place.cell_label) { sub += " · " + compactLabel(place.cell_label); }
       grow.appendChild(el("div", "sub", sub));
       if (place.notes) { grow.appendChild(el("div", "notes", place.notes)); }
@@ -428,7 +449,7 @@
     actions.appendChild(button("filled", "Add thing here", function () {
       openItemEditor({ spot: spot });
     }));
-    var isGridTop = place.kind === "grid" && !view.cell;
+    var isGridTop = isGrid(place) && !view.cell;
     if (!isGridTop) {
       actions.appendChild(button("outlined", place.kind === "room" ? "Add place" : "Add box", function () {
         openPlaceEditor({
@@ -440,6 +461,9 @@
     }
     if (!view.cell) {
       actions.appendChild(button("outlined", "Edit", function () { openPlaceEditor(S.places[place.id]); }));
+    }
+    if (place.kind === "sorting_box" && !view.cell) {
+      actions.appendChild(button("outlined", "Edit layout", function () { openLayout(place.id); }));
     }
     card.appendChild(actions);
 
@@ -495,15 +519,29 @@
     wall.style.minWidth = (22 + cols * 42) + "px";
     wall.style.maxWidth = (22 + cols * 76) + "px";
 
-    wall.appendChild(el("span", "corner", ""));
+    wall.style.gridTemplateRows = "18px repeat(" + rows + ", minmax(42px, auto))";
+    var corner = el("span", "corner", "");
+    corner.style.gridArea = "1 / 1"; wall.appendChild(corner);
     for (var x = 1; x <= cols; x++) {
-      wall.appendChild(el("span", "axis", String(fromRight ? cols - x + 1 : x)));
+      var axis = el("span", "axis", String(fromRight ? cols - x + 1 : x));
+      axis.style.gridArea = "1 / " + (x + 1); wall.appendChild(axis);
     }
     for (var y = 1; y <= rows; y++) {
-      wall.appendChild(el("span", "axis row", String(fromBottom ? rows - y + 1 : y)));
+      var rowAxis = el("span", "axis row", String(fromBottom ? rows - y + 1 : y));
+      rowAxis.style.gridArea = (y + 1) + " / 1"; wall.appendChild(rowAxis);
       for (var x2 = 1; x2 <= cols; x2++) {
         var cell = { col: fromRight ? cols - x2 + 1 : x2, row: fromBottom ? rows - y + 1 : y };
-        wall.appendChild(cellBox(grid, cell, (cells || {})[cell.col + "," + cell.row], opts));
+        var rect = opts.unitCells ? {col: cell.col, row: cell.row, cols: 1, rows: 1} : rectAt(grid, cell);
+        var left = fromRight ? cols - rect.col - rect.cols + 2 : rect.col;
+        var top = fromBottom ? rows - rect.row - rect.rows + 2 : rect.row;
+        if (!opts.unitCells && (x2 !== left || y !== top)) { continue; }
+        var anchor = {col: rect.col, row: rect.row};
+        var box = cellBox(grid, anchor, (cells || {})[anchor.col + "," + anchor.row], opts);
+        box.style.gridColumn = (left + 1) + " / span " + rect.cols;
+        box.style.gridRow = (top + 1) + " / span " + rect.rows;
+        if (rect.cols > 1 || rect.rows > 1) { box.classList.add("is-merged"); }
+        if (opts.highlight && opts.highlight(cell)) { box.classList.add("is-selected"); }
+        wall.appendChild(box);
       }
     }
     scroll.appendChild(wall);
@@ -530,7 +568,8 @@
       if (!names.length) { names = entry.names.slice(0, 2); }
     }
     box.appendChild(el("span", "box-name", names.join(", ")));
-    var label = cellLabel(grid, cell) + (count ? ": " + count + " things" : ": empty") +
+    var labelGrid = opts.unitCells ? Object.assign({}, grid, {merged_cells: []}) : grid;
+    var label = cellLabel(labelGrid, cell) + (count ? ": " + count + " things" : ": empty") +
       (names.length ? " (" + names.join(", ") + ")" : "");
     box.setAttribute("aria-label", label);
     box.title = label;
@@ -878,9 +917,9 @@
     var frame = { title: opts.title || "Where?" };
     var gridCache = {};
 
-    function go(placeId, cell) { at = { place: placeId || null, cell: cell || null }; renderSheet(true); }
+    function go(placeId, cell) { at = { place: placeId || null, cell: S.places[placeId] ? anchorCell(S.places[placeId], cell) : cell || null }; renderSheet(true); }
     function pick() {
-      var spot = { place: at.place, cell: at.cell };
+      var spot = { place: at.place, cell: S.places[at.place] ? anchorCell(S.places[at.place], at.cell) : at.cell };
       rememberSpot(spot);
       // Hand the answer over before the frame below re-renders, so it shows it.
       S.stack.pop();
@@ -918,13 +957,13 @@
       } else {
         var label;
         if (at.cell) { label = "Put it in this compartment"; }
-        else if (place.kind === "grid") { label = "Somewhere on " + place.name; }
+        else if (isGrid(place)) { label = "Somewhere on " + place.name; }
         else { label = "Put it in " + place.name; }
-        var target = button(place.kind === "grid" && !at.cell ? "outlined wide" : "filled wide", label, pick);
+        var target = button(isGrid(place) && !at.cell ? "outlined wide" : "filled wide", label, pick);
         body.appendChild(target);
       }
 
-      if (place && place.kind === "grid" && !at.cell) {
+      if (place && isGrid(place) && !at.cell) {
         var wallHolder = el("div");
         body.appendChild(wallHolder);
         var drawIt = function (cells) {
@@ -1001,20 +1040,20 @@
     };
     var frame = { title: isNew ? "New place" : "Edit " + draft.name };
     frame.build = function (body) {
-      var name = textInput(draft.name, draft.kind === "grid" ? "Left Kallax" : "Black box with lid",
+      var name = textInput(draft.name, isGrid(draft) ? "Left Kallax" : "Black box with lid",
         function (v) { draft.name = v; });
       body.appendChild(field("Name", name));
 
       body.appendChild(el("div", "field-label", "What is it"));
       var kinds = el("div", "chips");
-      ["room", "grid", "area", "container"].forEach(function (k) {
+      ["room", "grid", "area", "container", "sorting_box"].forEach(function (k) {
         kinds.appendChild(button("chip" + (draft.kind === k ? " is-on" : ""), KIND_LABELS[k], function () {
           draft.kind = k; renderSheet();
         }));
       });
       body.appendChild(kinds);
 
-      if (draft.kind === "grid") {
+      if (isGrid(draft)) {
         var two = el("div", "two");
         var cols = el("input"); cols.type = "number"; cols.min = "1"; cols.max = "60"; cols.value = draft.cols;
         cols.inputMode = "numeric";
@@ -1059,7 +1098,7 @@
 
       var notes = el("textarea");
       notes.value = draft.notes;
-      notes.placeholder = draft.kind === "grid" ? "Two Kallax 4×4 units side by side" : "";
+      notes.placeholder = isGrid(draft) ? "Two Kallax 4×4 units side by side" : "";
       notes.addEventListener("input", function () { draft.notes = notes.value; });
       body.appendChild(field("Notes", notes));
 
@@ -1070,7 +1109,7 @@
           name: draft.name, kind: draft.kind, parent: draft.parent, cell: draft.cell, notes: draft.notes
         };
         if (draft.id) { payload.id = draft.id; }
-        if (draft.kind === "grid") {
+        if (isGrid(draft)) {
           payload.cols = draft.cols; payload.rows = draft.rows;
           payload.count_cols_from = draft.count_cols_from; payload.count_rows_from = draft.count_rows_from;
         }
@@ -1101,6 +1140,80 @@
         body.appendChild(danger);
         body.appendChild(el("div", "meta-line", hint));
       }
+    };
+    openSheet(frame);
+  }
+
+  function openLayout(placeId) {
+    var first = null, last = null, mode = "merge", split = null, target = null, busy = false;
+    var frame = {title: "Sorting box layout"};
+    function selection() {
+      if (!first || !last) { return null; }
+      return {col: Math.min(first.col, last.col), row: Math.min(first.row, last.row),
+        cols: Math.abs(first.col - last.col) + 1, rows: Math.abs(first.row - last.row) + 1};
+    }
+    function save(action, payload) {
+      if (busy) { return; }
+      busy = true; renderSheet();
+      api("api/places/" + encodeURIComponent(placeId) + "/" + action, {method: "POST", body: payload})
+        .then(function () {
+          first = last = split = target = null;
+          return refresh();
+        }).then(function () { busy = false; renderTab(); renderSheet(); toast("Layout saved"); })
+        .catch(function (err) { busy = false; renderSheet(); fail(err); });
+    }
+    frame.build = function (body) {
+      var grid = S.places[placeId];
+      var modes = el("div", "chips");
+      ["merge", "split"].forEach(function (m) {
+        var control = button("chip" + (mode === m ? " is-on" : ""), m === "merge" ? "Merge" : "Split", function () {
+          mode = m; first = last = split = target = null; renderSheet();
+        });
+        control.disabled = busy; modes.appendChild(control);
+      });
+      body.appendChild(modes);
+      body.appendChild(el("p", null, mode === "merge"
+        ? "Tap two opposite corners of a rectangle. Include existing merged compartments in full. All contents stay in the new compartment."
+        : split ? "Choose the small cell that will keep all contents, then confirm."
+        : "Tap a merged compartment to split it into individual cells."));
+      var unitCells = mode === "merge" || !!split;
+      body.appendChild(drawWall(grid, {}, {
+        unitCells: unitCells,
+        highlight: function (cell) {
+          return mode === "merge" ? (selection() ? inRect(selection(), cell) : sameCell(first, cell))
+            : target ? sameCell(target, cell) : split && inRect(split, cell);
+        },
+        onTap: function (cell) {
+          if (busy) { return; }
+          if (mode === "merge") {
+            if (!first || last) { first = cell; last = null; } else { last = cell; }
+          } else if (!split) {
+            var rect = rectAt(grid, cell);
+            if (rect.cols === 1 && rect.rows === 1) { toast("Choose a merged compartment"); return; }
+            split = rect;
+          } else {
+            if (!inRect(split, cell)) { toast("Choose a cell inside the selected compartment"); return; }
+            target = cell;
+          }
+          renderSheet();
+        }
+      }));
+      var selected = selection();
+      if (mode === "merge" && selected) {
+        body.appendChild(el("p", "meta-line", "Selected: columns " + selected.col + "–" +
+          (selected.col + selected.cols - 1) + ", rows " + selected.row + "–" +
+          (selected.row + selected.rows - 1)));
+      }
+      var actions = el("div", "actions");
+      var apply = button("filled", busy ? "Saving…" : mode === "merge" ? "Merge selected cells" : "Split and keep contents here", function () {
+        if (mode === "merge") { save("merge", {from: first, to: last}); }
+        else { save("split", {cell: {col: split.col, row: split.row}, target: target}); }
+      });
+      apply.disabled = busy || (mode === "merge" ? !last || sameCell(first, last) : !target);
+      actions.appendChild(apply);
+      var reset = button("outlined", "Clear selection", function () { first = last = split = target = null; renderSheet(); });
+      reset.disabled = busy; actions.appendChild(reset);
+      body.appendChild(actions);
     };
     openSheet(frame);
   }

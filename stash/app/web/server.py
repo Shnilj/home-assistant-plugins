@@ -75,6 +75,14 @@ def create_app(controller):
     def api_save_place():
         return jsonify(controller.save_place(_body()))
 
+    @app.post("/api/places/<place_id>/merge")
+    def api_merge_cells(place_id):
+        return jsonify(controller.merge_cells(place_id, _body()))
+
+    @app.post("/api/places/<place_id>/split")
+    def api_split_cell(place_id):
+        return jsonify(controller.split_cell(place_id, _body()))
+
     @app.delete("/api/places/<place_id>")
     def api_delete_place(place_id):
         return jsonify(controller.delete_place(place_id))
