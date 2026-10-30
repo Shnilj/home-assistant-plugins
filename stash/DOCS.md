@@ -22,6 +22,7 @@ front of the shelf.
 | Room        | The man cave, the garage, the shed.                                |
 | Shelf wall  | A row of Kallax units. A grid of compartments: columns × rows.     |
 | Area        | Somewhere without compartments: *behind the left Kallax*, a corner.|
+| Sorting box | A Sortimo-style organizer with rectangular, mergeable compartments. |
 | Box         | Anything you put things in: a box, a bin, a drawer, a bag.         |
 
 Places nest freely: a box can sit in a compartment of a wall, another box can
@@ -41,6 +42,23 @@ resize that would leave something outside the wall and tells you what.
 
 **Deleting** a place moves whatever was in it to where it stood: delete the
 black box and its cables are now loose in that compartment.
+
+### Sorting boxes
+
+Choose **Sorting box** when adding a place, then set its columns and rows.
+It can sit in a shelf compartment or inside another place, just like a box.
+
+Open the sorting box and choose **Edit layout**:
+- **Merge**: tap two opposite corners, then **Merge selected cells**. The
+  rectangle must include existing merged compartments in full.
+- **Split**: tap a merged compartment, then choose the small cell that will
+  keep its contents and confirm. All other cells become empty.
+
+Items and nested boxes move into the merged compartment. If the same thing
+was in several selected cells, its quantities add up and notes are retained.
+An uncounted quantity stays uncounted. Layout changes save immediately.
+Changing counting direction renumbers the whole rectangle; shrinking is
+refused if it would cut through a merged compartment, even an empty one.
 
 ## Things
 
@@ -137,7 +155,8 @@ the change on the next tap, no restart needed.
 - `cell` uses the wall's **own** numbering: `{"col": 14, "row": 2}` on a wall
   counted from the right is the 14th from the right. `[14, 2]` and `"14,2"`
   are accepted too.
-- `kind` is `room`, `grid` (shelf wall), `area` or `container` (box).
+- `kind` is `room`, `grid` (shelf wall), `area`, `container` (box), or `sorting_box`.
+- A `sorting_box` has the same grid fields as a shelf wall plus `merged_cells`: a list of rectangles such as `{"col": 1, "row": 1, "cols": 2, "rows": 2}`. Coordinates use its own numbering. Rectangles must fit and must not overlap. Any cell inside a merged rectangle resolves to its lowest column and row.
 - `qty: null` means "not counted".
 - A spot that points at a place id that does not exist is kept and shown in
   red, so a typo never loses data. Fix the id and it comes back.
@@ -159,6 +178,8 @@ path):
 | POST | `api/items/<id>/locations/<loc>` | move / recount / note |
 | POST | `api/items/<id>/locations/<loc>/step` | `{delta: -1}` |
 | POST | `api/import` | `{text, spot?, dry_run}` — preview by default, `dry_run: false` applies |
+| POST | `api/places/<id>/merge` | Sorting box: `{from: {col, row}, to: {col, row}}` |
+| POST | `api/places/<id>/split` | Sorting box: `{cell: {col, row}, target?: {col, row}}`; target required when occupied |
 | DELETE | `api/items/<id>` · `api/places/<id>` · `api/items/<id>/locations/<loc>` | |
 
 ## Updating

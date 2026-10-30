@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Add Sorting box places with configurable rows and columns.
+- Merge rectangular groups of compartments and split them back into single cells.
+- Preserve items, quantities, notes and nested boxes when editing the layout; choose where contents stay when splitting.
+- Keep merged compartments consistent across numbering changes, imports and data-file reloads; reject overlaps and unsafe resizes.
+
+
 ## 0.2.0 — 2026-10-21
 
 **Import.** Bring in a batch of things — say, a list made from a photo of a

@@ -529,3 +529,6 @@ details.report summary::-webkit-details-marker { display: none; }
 details.report summary .count { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
 details.report.bad summary { color: var(--danger); }
 details.report[open] summary { border-bottom: 1px solid var(--line); }
+
+/* A merged sorting compartment spans its original grid cells. */
+.cellbox.is-merged { aspect-ratio: auto; min-height: 42px; }

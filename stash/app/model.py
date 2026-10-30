@@ -19,12 +19,13 @@ from __future__ import annotations
 import re
 import unicodedata
 
-KINDS = ("room", "grid", "area", "container")
+KINDS = ("room", "grid", "area", "container", "sorting_box")
 KIND_LABELS = {
     "room": "Room",
     "grid": "Shelf wall",
     "area": "Area",
     "container": "Box",
+    "sorting_box": "Sorting box",
 }
 SEPARATOR = " › "
 
@@ -46,7 +47,11 @@ def cell_label(grid, cell, short=False):
     """'14th from the right, 2nd from the top' — or '14 · 2' when short."""
     if not cell:
         return ""
+    cell = canonical_cell(grid or {}, cell)
     col, row = cell.get("col"), cell.get("row")
+    rect = compartment(grid or {}, cell)
+    if rect["cols"] > 1 or rect["rows"] > 1:
+        return "Columns %d–%d, rows %d–%d" % (col, col + rect["cols"] - 1, row, row + rect["rows"] - 1)
     if short:
         return "%s · %s" % (col, row)
     cols_from = (grid or {}).get("count_cols_from") or "left"
@@ -75,6 +80,8 @@ def merge_location(locations, loc):
         if other["place"] == loc["place"] and same_cell(other.get("cell"), loc.get("cell")):
             if other.get("qty") is not None and loc.get("qty") is not None:
                 other["qty"] += loc["qty"]
+            else:
+                other["qty"] = None
             note = loc.get("note") or ""
             if note and note not in (other.get("note") or ""):
                 other["note"] = ((other.get("note") or "") + "; " + note).strip("; ")
@@ -97,6 +104,38 @@ def same_cell(a, b):
 # --------------------------------------------------------------------------
 # geometry of a wall
 # --------------------------------------------------------------------------
+
+
+def is_grid(place):
+    return place.get("kind") in ("grid", "sorting_box")
+
+
+def contains(rect, cell):
+    return (rect["col"] <= cell["col"] < rect["col"] + rect["cols"]
+            and rect["row"] <= cell["row"] < rect["row"] + rect["rows"])
+
+
+def compartment(grid, cell):
+    for rect in grid.get("merged_cells") or []:
+        if contains(rect, cell):
+            return dict(rect)
+    return dict(cell, cols=1, rows=1)
+
+
+def canonical_cell(grid, cell):
+    if not cell:
+        return None
+    rect = compartment(grid, cell)
+    return {"col": rect["col"], "row": rect["row"]}
+
+
+def reshape_rect(old, new, rect):
+    first = renumber(old, new, rect)
+    last = renumber(old, new, {"col": rect["col"] + rect["cols"] - 1,
+                               "row": rect["row"] + rect["rows"] - 1})
+    return dict(rect, col=min(first["col"], last["col"]),
+                row=min(first["row"], last["row"]))
+
 
 def physical(grid, cell):
     """The wall's own numbers → (x, y) from the top-left corner, 1-based."""
@@ -191,12 +230,12 @@ def path(by_id, place_id, cell=None):
     for node in chain:
         if node.get("cell"):
             parent = by_id.get(node.get("parent"))
-            if parent and parent.get("kind") == "grid":
+            if parent and is_grid(parent):
                 segments.append(_cell_segment(parent, node["cell"]))
         segments.append({"kind": node.get("kind"), "label": node["name"], "id": node["id"]})
     if cell:
         place = by_id.get(place_id)
-        if place and place.get("kind") == "grid":
+        if place and is_grid(place):
             segments.append(_cell_segment(place, cell))
     return segments
 
@@ -394,7 +433,8 @@ def place_view(places, items, place_id, cell=None):
     """Everything needed to show one place, or one compartment of a wall."""
     by_id = index(places)
     place = by_id[place_id]
-    is_grid = place.get("kind") == "grid"
+    cell = canonical_cell(place, cell)
+    gridded = is_grid(place)
     # On a wall with no cell chosen, list what hangs on the wall as a whole.
     here = locations_at(items, place_id, cell)
     kids = children_of(places, place_id, cell)
@@ -417,7 +457,7 @@ def place_view(places, items, place_id, cell=None):
             for item, loc in sorted(here, key=lambda pair: fold(pair[0]["name"]))
         ],
     }
-    if is_grid and not cell:
+    if gridded and not cell:
         view["grid"] = {
             "cols": place.get("cols"),
             "rows": place.get("rows"),
@@ -443,10 +483,10 @@ def place_summary(places, items, place, by_id=None):
     }
     if place.get("cell"):
         parent = by_id.get(place.get("parent"))
-        if parent and parent.get("kind") == "grid":
+        if parent and is_grid(parent):
             out["cell_label"] = cell_label(parent, place["cell"])
             out["cell_short"] = cell_label(parent, place["cell"], short=True)
-    if place.get("kind") == "grid":
-        for key in ("cols", "rows", "count_cols_from", "count_rows_from"):
+    if is_grid(place):
+        for key in ("cols", "rows", "count_cols_from", "count_rows_from", "merged_cells"):
             out[key] = place.get(key)
     return out

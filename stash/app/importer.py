@@ -124,14 +124,14 @@ class _Run:
         if not cell:
             return None
         place = self.by_id()[place_id]
-        if place["kind"] != "grid":
+        if not model.is_grid(place):
             raise ValidationError("%s has no compartments" % place["name"])
         if not model.in_bounds(place, cell):
             raise ValidationError(
                 "%s is %s × %s; there is no column %s, row %s"
                 % (place["name"], place["cols"], place["rows"], cell["col"], cell["row"])
             )
-        return cell
+        return model.canonical_cell(place, cell)
 
     def import_places(self, raw_places):
         pending = [p for p in raw_places if isinstance(p, dict)]

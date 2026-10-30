@@ -18,6 +18,7 @@ import shutil
 import tempfile
 from datetime import datetime
 
+from . import model
 from .model import KINDS
 
 SCHEMA_VERSION = 1
@@ -135,7 +136,7 @@ def normalize_place(raw, taken_ids=()):
         "cell": cell,
         "notes": _text(raw.get("notes")),
     }
-    if kind == "grid":
+    if kind in ("grid", "sorting_box"):
         cols_from = _text(raw.get("count_cols_from")).lower()
         rows_from = _text(raw.get("count_rows_from")).lower()
         place.update(
@@ -146,7 +147,37 @@ def normalize_place(raw, taken_ids=()):
                 "count_rows_from": rows_from if rows_from in ("top", "bottom") else "top",
             }
         )
+    if kind == "sorting_box":
+        place["merged_cells"] = normalize_rectangles(raw.get("merged_cells", []), place)
     return place
+
+
+def normalize_rectangles(raw, grid):
+    if not isinstance(raw, list):
+        raise ValidationError("merged_cells must be a list")
+    rects, occupied = [], set()
+    for rect in raw:
+        if not isinstance(rect, dict):
+            raise ValidationError("a merged compartment must be a rectangle")
+        clean = {}
+        for key in ("col", "row", "cols", "rows"):
+            value = rect.get(key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValidationError("rectangle coordinates and sizes must be positive whole numbers")
+            clean[key] = value
+        end = {"col": clean["col"] + clean["cols"] - 1,
+               "row": clean["row"] + clean["rows"] - 1}
+        if not model.in_bounds(grid, clean) or not model.in_bounds(grid, end):
+            raise ValidationError("a merged compartment would fall outside the sorting box")
+        if clean["cols"] == clean["rows"] == 1:
+            continue
+        for col in range(clean["col"], end["col"] + 1):
+            for row in range(clean["row"], end["row"] + 1):
+                if (col, row) in occupied:
+                    raise ValidationError("merged compartments cannot overlap")
+                occupied.add((col, row))
+        rects.append(clean)
+    return rects
 
 
 def normalize_location(raw):
@@ -231,6 +262,17 @@ def normalize_data(raw):
             continue
         item_ids.add(item["id"])
         items.append(item)
+    by_id = model.index(places)
+    for place in places:
+        parent = by_id.get(place.get("parent"), {})
+        if place.get("cell") and model.in_bounds(parent, place["cell"]):
+            place["cell"] = model.canonical_cell(parent, place["cell"])
+    for item in items:
+        for loc in list(item["locations"]):
+            parent = by_id.get(loc["place"], {})
+            if parent.get("kind") == "sorting_box" and loc.get("cell") and model.in_bounds(parent, loc["cell"]):
+                loc["cell"] = model.canonical_cell(parent, loc["cell"])
+                model.merge_location(item["locations"], loc)
     return {"version": SCHEMA_VERSION, "places": places, "items": items}
 
 

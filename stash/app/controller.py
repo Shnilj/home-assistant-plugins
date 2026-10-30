@@ -103,14 +103,14 @@ class Controller:
             raise ValidationError("no such place: %s" % place_id)
         cell = store.parse_cell(cell)
         if cell:
-            if place["kind"] != "grid":
+            if not model.is_grid(place):
                 raise ValidationError("%s has no compartments" % place["name"])
             if not model.in_bounds(place, cell):
                 raise ValidationError(
                     "%s is %d × %d; there is no column %d, row %d"
                     % (place["name"], place["cols"], place["rows"], cell["col"], cell["row"])
                 )
-        return place, cell
+        return place, model.canonical_cell(place, cell)
 
     def _view(self, item):
         return model.item_view(model.index(self.places), item)
@@ -186,6 +186,15 @@ class Controller:
             merged = dict(existing)
             merged.update({k: v for k, v in raw.items() if k != "id"})
             merged["id"] = existing["id"]
+            if "merged_cells" in raw and raw["merged_cells"] != existing.get("merged_cells", []):
+                raise ValidationError("use the layout editor to merge or split compartments")
+            if existing.get("merged_cells"):
+                if merged["kind"] != "sorting_box":
+                    raise ValidationError("split the merged compartments before changing the kind")
+                merged["merged_cells"] = [
+                    model.reshape_rect(existing, merged, rect)
+                    for rect in existing["merged_cells"]
+                ]
             place = store.normalize_place(merged)
         else:
             raw.pop("id", None)
@@ -223,11 +232,11 @@ class Controller:
         ]
         if not on_wall and not on_wall_locs:
             return
-        if old["kind"] == "grid" and new["kind"] != "grid":
+        if model.is_grid(old) and not model.is_grid(new):
             raise ValidationError(
                 "%s still has things in its compartments; move them first" % old["name"]
             )
-        if old["kind"] != "grid":
+        if not model.is_grid(old):
             return
         moved, outside = [], []
         for row in on_wall:
@@ -248,7 +257,71 @@ class Controller:
                    "it" if len(names) == 1 else "them")
             )
         for row, cell in moved:
-            row["cell"] = cell
+            row["cell"] = model.canonical_cell(new, cell)
+
+
+    @guarded
+    def merge_cells(self, place_id, raw):
+        place = self._place(place_id)
+        if place["kind"] != "sorting_box":
+            raise ValidationError("only a sorting box has an editable layout")
+        first, last = store.parse_cell(raw.get("from")), store.parse_cell(raw.get("to"))
+        if not first or not last or not model.in_bounds(place, first) or not model.in_bounds(place, last):
+            raise ValidationError("choose two corners inside the sorting box")
+        rect = {"col": min(first["col"], last["col"]), "row": min(first["row"], last["row"]),
+                "cols": abs(first["col"] - last["col"]) + 1,
+                "rows": abs(first["row"] - last["row"]) + 1}
+        if rect["cols"] == rect["rows"] == 1:
+            raise ValidationError("select at least two compartments")
+        kept = []
+        for existing in place["merged_cells"]:
+            end = {"col": existing["col"] + existing["cols"] - 1,
+                   "row": existing["row"] + existing["rows"] - 1}
+            overlap = (rect["col"] <= end["col"] and existing["col"] < rect["col"] + rect["cols"]
+                       and rect["row"] <= end["row"] and existing["row"] < rect["row"] + rect["rows"])
+            if overlap:
+                if not model.contains(rect, existing) or not model.contains(rect, end):
+                    raise ValidationError("select the whole of each existing merged compartment")
+            else:
+                kept.append(existing)
+        place["merged_cells"] = store.normalize_rectangles(kept + [rect], place)
+        for child in self.places:
+            if child.get("parent") == place_id and child.get("cell"):
+                child["cell"] = model.canonical_cell(place, child["cell"])
+        for item in self.items:
+            for loc in list(item["locations"]):
+                if loc["place"] == place_id and loc.get("cell"):
+                    loc["cell"] = model.canonical_cell(place, loc["cell"])
+                    self._merge_into(item["locations"], loc)
+        self._save()
+        return model.place_view(self.places, self.items, place_id)
+
+    @guarded
+    def split_cell(self, place_id, raw):
+        place = self._place(place_id)
+        if place["kind"] != "sorting_box":
+            raise ValidationError("only a sorting box has an editable layout")
+        cell = store.parse_cell(raw.get("cell"))
+        if not cell or not model.in_bounds(place, cell):
+            raise ValidationError("choose a merged compartment")
+        rect = model.compartment(place, cell)
+        if rect["cols"] == rect["rows"] == 1:
+            raise ValidationError("this compartment is already a single cell")
+        anchor = model.canonical_cell(place, cell)
+        children = [p for p in self.places if p.get("parent") == place_id
+                    and model.same_cell(p.get("cell"), anchor)]
+        locs = [loc for item in self.items for loc in item["locations"]
+                if loc["place"] == place_id and model.same_cell(loc.get("cell"), anchor)]
+        target = store.parse_cell(raw.get("target"))
+        if (children or locs) and target is None:
+            raise ValidationError("choose which cell will keep the contents")
+        if target and not model.contains(rect, target):
+            raise ValidationError("the contents must stay inside the compartment being split")
+        for row in children + locs:
+            row["cell"] = dict(target)
+        place["merged_cells"].remove(rect)
+        self._save()
+        return model.place_view(self.places, self.items, place_id)
 
     @guarded
     def delete_place(self, place_id):
@@ -271,7 +344,7 @@ class Controller:
                 parent = self._place(parent_id)
             except PlaceNotFound:
                 parent = None
-        landing_cell = place.get("cell") if parent and parent["kind"] == "grid" else None
+        landing_cell = place.get("cell") if parent and model.is_grid(parent) else None
         for child in children:
             child["parent"] = parent_id
             child["cell"] = landing_cell
